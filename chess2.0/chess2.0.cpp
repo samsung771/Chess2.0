@@ -1,12 +1,20 @@
 #include <iostream>
 #include <chrono>
 
+#define DEFAULT "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
 #define BLACK 0
 #define WHITE 1
+
+#define KCASTLE 0b0001
+#define kCASTLE 0b0010
+#define QCASTLE 0b0100
+#define qCASTLE 0b1000
 
 typedef unsigned long long u64;
 typedef uint8_t            u8;
 typedef uint16_t           u16;
+
 
 //mailbox for movechecking with borders
 bool mailbox[120] = {
@@ -52,18 +60,13 @@ u64 queens  = 0b0000100000000000000000000000000000000000000000000000000000001000
 u64 doubleMoveW = 0b0000000011111111000000000000000000000000000000000000000000000000;
 u64 doubleMoveB = 0b0000000000000000000000000000000000000000000000001111111100000000;
 
-//u64 boundaryMask = 0b1111111110000001100000011000000110000001100000011000000111111111;
 u64 rRankMask    = 0b0000000100000001000000010000000100000001000000010000000100000001;
 u64 lRankMask    = 0b1000000010000000100000001000000010000000100000001000000010000000;
-//u64 uRankMask    = 0b1111111100000000000000000000000000000000000000000000000000000000;
-//u64 dRankMask    = 0b0000000000000000000000000000000000000000000000000000000011111111;
-//u64 rDRankMask   = 0b0000001100000011000000110000001100000011000000110000001100000011;
-//u64 lDRankMask   = 0b1100000011000000110000001100000011000000110000001100000011000000;
-//u64 uDRankMask   = 0b1111111111111111000000000000000000000000000000000000000000000000;
-//u64 dDRankMask   = 0b0000000000000000000000000000000000000000000000001111111111111111;
 
 
 bool side = WHITE;
+int fiftyMove = 0;
+int moveNum = 1;
 
 const int pieceMoves[4][8] = {
 	/*rook*/   {-1,1,8,-8,0,0,0,0},
@@ -91,12 +94,8 @@ struct move {
 };
 
 int movePointer = 0;
-int moveNum = 0;
 u8 ep = 0;
-
-u8 to2 = 0;
-u8 from2 = 0;
-u8 info = 0;
+u8 castle = 15;
 
 move generated[1024];
 move history[100];
@@ -122,6 +121,8 @@ void printBoard() {
 				piece = 'k';
 			else if (queens & pointer)
 				piece = 'q';
+			else
+				piece = 'e';
 
 			if (white & pointer)
 				piece = toupper(piece);
@@ -349,10 +350,192 @@ void gen (){
 	}
 }
 
+void loadBoardFromFen(std::string fen) {
+	pawns = 0;
+	rooks = 0;
+	bishops = 0;
+	queens = 0;
+	kings = 0;
+	knights = 0;
+	black = 0;
+	white = 0;
+	castle = 0;
+	ep = 0;
+	fiftyMove = 0;
+	moveNum = 0;
+
+	int square = 0;
+
+	u64 pointer = 1;
+	int parameterPointer = 0;
+
+	int letter = 0;
+
+	//for each thing in the fen
+	for (char i : fen) {
+		letter++;
+		if (square < 64) {
+			//switch for each piece
+			switch (tolower(i)) {
+			case 'r':
+				rooks |= pointer;
+				break;
+			case 'k':
+				kings |= pointer;
+				break;
+			case 'p':
+				pawns |= pointer;
+				break;
+			case 'n':
+				knights |= pointer;
+				break;
+			case 'b':
+				bishops |= pointer;
+				break;
+			case 'q':
+				queens |= pointer;
+				break;
+				//new line
+			case '/':
+				continue;
+				//skip open squares
+			default:
+				if (i - 48 > 0 && i - 48 < 9) {
+					pointer <<= i - 48;
+					square += 8;
+					continue;
+				}
+				break;
+			};
+			if (i != toupper(i))
+				black |= pointer;
+			else
+				white |= pointer;
+
+			pointer <<= 1;
+			square++;
+		}
+		//parameters
+		else {
+			//colour of the piece
+			switch (i) {
+				if (parameterPointer == 0) {
+			case 'w':
+				side = WHITE;
+				parameterPointer++;
+				break;
+			case 'b':
+				side = BLACK;
+				parameterPointer++;
+				break;
+				}
+			}
+
+
+			//checks for castling
+			if (parameterPointer >= 1 && parameterPointer < 5) {
+				if (i == 'K') {
+					if (parameterPointer == 2)
+						parameterPointer++;
+					castle |= 0b0001;
+				}
+				else if (i == 'k') {
+					if (parameterPointer == 3)
+						parameterPointer++;
+					castle |= 0b0010;
+				}
+				else if (i == 'Q') {
+					if (parameterPointer == 2)
+						parameterPointer++;
+					castle |= 0b0100;
+				}
+				else if (i == 'q') {
+					if (parameterPointer == 3)
+						parameterPointer++;
+					castle |= 0b1000;
+				}
+				else {
+					parameterPointer++;
+				}
+			}
+			if (parameterPointer == 5) {
+				if (i == '-')
+					parameterPointer += 2;
+				else
+					switch (i)
+					{
+					case 'h':
+						ep++;
+					case 'g':
+						ep++;
+					case 'f':
+						ep++;
+					case 'e':
+						ep++;
+					case 'd':
+						ep++;
+					case 'c':
+						ep++;
+					case 'b':
+						ep++;
+					case 'a':
+						parameterPointer++;
+					default:
+						break;
+					}
+
+			}
+			else if (parameterPointer == 6){
+				switch (i)
+				{
+				case '8':
+					ep += 8;
+				case '7':
+					ep += 8;
+				case '6':
+					ep += 8;
+				case '5':
+					ep += 8;
+				case '4':
+					ep += 8;
+				case '3':
+					ep += 8;
+				case '2':
+					ep += 8;
+				case '1':
+					parameterPointer++;
+				default:
+					break;
+				}
+			}
+			else if (parameterPointer == 7) {
+				if (i != ' ') {
+					if (fiftyMove != 0)
+						fiftyMove *= 10;
+					fiftyMove += i - 48;
+				}
+				if (fen[letter] == ' ')
+					parameterPointer++;
+			}
+			else if (parameterPointer == 8) {
+				if (i != ' ') {
+					if (moveNum != 0)
+						moveNum *= 10;
+					moveNum += i - 48;
+				}
+			}
+		}
+	}
+	empty = ~(black | white);
+}
+
 
 int main() {
 	int tries = 1000000;
 	printBoard();
+	loadBoardFromFen(DEFAULT);
+	printBoard();
+
 	std::chrono::steady_clock::time_point end, start;
 	std::cout << "\ngen\n";
 	start = std::chrono::steady_clock::now();
