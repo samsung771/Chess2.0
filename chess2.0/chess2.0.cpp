@@ -4,6 +4,8 @@
 
 #define DEFAULT "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 #define PERFT2  "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -" 
+#define PERFT2e "r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R b KQkq a3"
+#define PERFT2n "4k2r/pPppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQk -"
 #define PERFT3  "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -"
 #define PERFT5  "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
 
@@ -104,7 +106,7 @@ struct move {
 };
 
 int movePointer = 0;
-u8 ep = 0;
+int ep = -1;
 u8 castle = 15;
 
 move generated[1024];
@@ -170,11 +172,18 @@ void gen (){
 					addMove(i - 7, i, 1);
 				if (!(lRankMask & pointer) && black & pointer >> 9)
 					addMove(i - 9, i, 1);
+				if (!(rRankMask & pointer) && (u64)1 << ep & pointer >> 7)
+					addMove(i - 7, i, 4);
+				if (!(lRankMask & pointer) && (u64)1 << ep & pointer >> 9)
+					addMove(i - 9, i, 4);
+				if (!(lRankMask & pointer) && black & pointer >> 9)
+					addMove(i - 9, i, 1);
 				if (empty & pointer >> 8)
 					addMove(i - 8, i, 0);
 				if (pointer & doubleMoveW && empty & pointer >> 16 && empty & pointer >> 8)
 					addMove(i - 16, i, 0);
 			}
+
 			else if (pointer & rooks) {
 				for (moves = 0; moves < 4; moves++) {
 					for (j = i;;) {
@@ -230,6 +239,7 @@ void gen (){
 					}
 				}
 			}
+
 			else if (pointer & queens) {
 				for (moves = 0; moves < 8; moves++) {
 					for (j = i;;) {
@@ -247,6 +257,7 @@ void gen (){
 					}
 				}
 			}
+
 			else {
 				for (moves = 0; moves < 8; moves++) {
 					j = i;
@@ -265,7 +276,7 @@ void gen (){
 				if ((wKcastle & empty) == wKcastle && castle & KCASTLE) 
 					addMove(62, i, 2);
 				if ((wQcastle & empty) == wQcastle && castle & QCASTLE) 
-					addMove(57, i, 2);
+					addMove(58, i, 2);
 			}
 		}
 		else if (!side && black & pointer) {
@@ -274,11 +285,16 @@ void gen (){
 					addMove(i + 7, i, 1);
 				if (!(rRankMask & pointer) && white & pointer << 9)
 					addMove(i + 9, i, 1);
+				if (!(lRankMask & pointer) && (u64)1 << ep & pointer << 7)
+					addMove(i + 7, i, 4);
+				if (!(rRankMask & pointer) && (u64)1 << ep & pointer << 9)
+					addMove(i + 9, i, 4);
 				if (empty & pointer << 8)
 					addMove(i + 8, i, 0);
 				if (pointer & doubleMoveB && empty & pointer << 16 && empty & pointer << 8)
 					addMove(i + 16, i, 0);
 			}
+
 			else if (pointer & rooks) {
 				for (moves = 0; moves < 4; moves++) {
 					for (j = i;;) {
@@ -334,6 +350,7 @@ void gen (){
 					}
 				}
 			}
+
 			else if (pointer & queens) {
 				for (moves = 0; moves < 8; moves++) {
 					for (j = i;;) {
@@ -351,6 +368,7 @@ void gen (){
 					}
 				}
 			}
+
 			else {
 				for (moves = 0; moves < 8; moves++) {
 					j = i;
@@ -366,6 +384,10 @@ void gen (){
 						continue;
 					}
 				}
+				if ((bKcastle & empty) == bKcastle && castle & kCASTLE)
+					addMove(6, i, 2);
+				if ((bQcastle & empty) == bQcastle && castle & qCASTLE)
+					addMove(2, i, 2);
 			}
 		}
 		pointer <<= 1;
@@ -383,7 +405,7 @@ void loadBoardFromFen(std::string fen) {
 	black = 0;
 	white = 0;
 	castle = 0;
-	ep = 0;
+	ep = -1;
 	fiftyMove = 0;
 	moveNum = 0;
 
@@ -482,9 +504,12 @@ void loadBoardFromFen(std::string fen) {
 				}
 			}
 			if (parameterPointer == 5) {
-				if (i == '-')
+				if (i == '-') {
+					ep = -1;
 					parameterPointer += 2;
-				else
+				}
+				else {
+					ep = 0;
 					switch (i)
 					{
 					case 'h':
@@ -506,26 +531,26 @@ void loadBoardFromFen(std::string fen) {
 					default:
 						break;
 					}
-
+				}
 			}
 			else if (parameterPointer == 6){
 				switch (i)
 				{
-				case '8':
-					ep += 8;
-				case '7':
-					ep += 8;
-				case '6':
-					ep += 8;
-				case '5':
-					ep += 8;
-				case '4':
-					ep += 8;
-				case '3':
+				case '1':
 					ep += 8;
 				case '2':
 					ep += 8;
-				case '1':
+				case '3':
+					ep += 8;
+				case '4':
+					ep += 8;
+				case '5':
+					ep += 8;
+				case '6':
+					ep += 8;
+				case '7':
+					ep += 8;
+				case '8':
 					parameterPointer++;
 				default:
 					break;
@@ -556,7 +581,7 @@ void loadBoardFromFen(std::string fen) {
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(PERFT3);
+	loadBoardFromFen(PERFT2e);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
