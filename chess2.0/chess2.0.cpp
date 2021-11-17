@@ -581,7 +581,7 @@ void loadBoardFromFen(std::string fen) {
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(PERFT2e);
+	loadBoardFromFen(PERFT2n);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
