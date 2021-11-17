@@ -1,5 +1,6 @@
 #include <iostream>
 #include <chrono>
+#include <algorithm>
 
 #define DEFAULT "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 #define PERFT2  "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -" 
@@ -157,9 +158,9 @@ void gen (){
 	for (i = 0; i < 64; i++) {
 		if (side && white & pointer) {
 			if (pointer & pawns) {
-				if (!(lRankMask & pointer >> 7) && black & pointer >> 7)
+				if (!(rRankMask & pointer) && black & pointer >> 7)
 					addMove(i - 7, i, 1);
-				if (!(rRankMask & pointer >> 9) && black & pointer >> 9)
+				if (!(lRankMask & pointer) && black & pointer >> 9)
 					addMove(i - 9, i, 1);
 				if (empty & pointer >> 8)
 					addMove(i - 8, i, 0);
@@ -257,9 +258,9 @@ void gen (){
 		}
 		else if (!side && black & pointer) {
 			if (pointer & pawns) {
-				if (!(lRankMask & pointer << 7) && white & pointer << 7)
+				if (!(lRankMask & pointer) && white & pointer << 7)
 					addMove(i + 7, i, 1);
-				if (!(rRankMask & pointer << 9) && white & pointer << 9)
+				if (!(rRankMask & pointer) && white & pointer << 9)
 					addMove(i + 9, i, 1);
 				if (empty & pointer << 8)
 					addMove(i + 8, i, 0);
@@ -555,6 +556,8 @@ int main() {
 	}
 	end = std::chrono::steady_clock::now();
 	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count()/tries << "ns\n";
+
+	std::sort(&generated[0],&generated[movePointer], [](move a, move b) {return a.moveInfo > b.moveInfo; });
 
 	std::cout << movePointer << '\n';
 
