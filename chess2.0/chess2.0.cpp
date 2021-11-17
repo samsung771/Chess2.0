@@ -2,6 +2,7 @@
 #include <chrono>
 
 #define DEFAULT "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+#define PERFT2  "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -" 
 
 #define BLACK 0
 #define WHITE 1
@@ -162,7 +163,7 @@ void gen (){
 					addMove(i - 9, i, 1);
 				if (empty & pointer >> 8)
 					addMove(i - 8, i, 0);
-				if (pointer & doubleMoveW && empty & pointer >> 16)
+				if (pointer & doubleMoveW && empty & pointer >> 16 && empty & pointer >> 8)
 					addMove(i - 16, i, 0);
 			}
 			else if (pointer & rooks) {
@@ -230,6 +231,10 @@ void gen (){
 							break;
 						else if ((u64)1 << j & empty)
 							addMove(j, i, 0);
+						else {
+							addMove(j, i, 1);
+							break;
+						}
 					}
 				}
 			}
@@ -258,7 +263,7 @@ void gen (){
 					addMove(i + 9, i, 1);
 				if (empty & pointer << 8)
 					addMove(i + 8, i, 0);
-				if (pointer & doubleMoveB && empty & pointer << 16)
+				if (pointer & doubleMoveB && empty & pointer << 16 && empty & pointer << 8)
 					addMove(i + 16, i, 0);
 			}
 			else if (pointer & rooks) {
@@ -326,6 +331,10 @@ void gen (){
 							break;
 						else if ((u64)1 << j & empty)
 							addMove(j, i, 0);
+						else {
+							addMove(j, i, 1);
+							break;
+						}
 					}
 				}
 			}
@@ -349,6 +358,7 @@ void gen (){
 		pointer <<= 1;
 	}
 }
+
 
 void loadBoardFromFen(std::string fen) {
 	pawns = 0;
@@ -402,7 +412,7 @@ void loadBoardFromFen(std::string fen) {
 			default:
 				if (i - 48 > 0 && i - 48 < 9) {
 					pointer <<= i - 48;
-					square += 8;
+					square += i -48;
 					continue;
 				}
 				break;
@@ -533,7 +543,7 @@ void loadBoardFromFen(std::string fen) {
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(DEFAULT);
+	loadBoardFromFen(PERFT2);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
