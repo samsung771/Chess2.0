@@ -1,12 +1,16 @@
 #include <iostream>
 #include <chrono>
 #include <algorithm>
+#include <stdlib.h> 
+#include <conio.h>
+#include <windows.h> 
 
 #define DEFAULT "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 #define PERFT2  "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -" 
 #define PERFT2e "r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R b KQkq a3"
 #define PERFT2n "4k2r/pPppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQk -"
 #define PERFT3  "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -"
+#define PERFT3c "8/2p5/3p4/KP5r/5R1k/8/4P1P1/8 b - -"
 #define PERFT5  "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"
 
 #define BLACK 0
@@ -80,21 +84,23 @@ bool side = WHITE;
 int fiftyMove = 0;
 int moveNum = 1;
 
-const int pieceMoves[4][8] = {
+const int pieceMoves[5][8] = {
 	/*rook*/   {-1,1,8,-8,0,0,0,0},
 	/*bishop*/ {-7,7,9,-9,0,0,0,0},
 	/*knight*/ {-17,17,15,-15,-10,10,6,-6},
+	/*king*/   {-7,7,9,-9,-1,1,8,-8},
 	/*queen*/  {-7,7,9,-9,-1,1,8,-8}
 };
-const int mailboxMoves[4][8] = {
+const int mailboxMoves[5][8] = {
 	/*rook*/   {-1,1,10,-10,0,0,0,0},
 	/*bishop*/ {-9,9,11,-11,0,0,0,0},
 	/*knight*/ {-21,21,19,-19,-12,12,8,-8},
+	/*king*/   {-9,9,11,-11,-1,1,10,-10},
 	/*queen*/  {-9,9,11,-11,-1,1,10,-10}
 };
 
-const u8 pieceMoveSizes[4] = {4,4,8,8};
-const bool slidingPiece[4] = {1,1,0,1};
+const u8 pieceMoveSizes[5] = {4,4,8,8,8};
+const bool slidingPiece[5] = {1,1,0,0,1};
 
 u16 test[1024] = {0};
 
@@ -112,8 +118,10 @@ u8 castle = 15;
 move generated[1024];
 move history[100];
 
+static HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+
 void printBoard() {
-	unsigned long long pointer = 1;
+	u64 pointer = 1;
 	std::cout << "8  ";
 	for (int i = 0; i < 64; i++) {
 		char piece;
@@ -394,6 +402,271 @@ void gen (){
 	}
 }
 
+bool attacked(int square) {
+	u8 j, moves;
+	u64 pointer = (u64)1 << square;
+
+	u64* col1 = nullptr;
+	u64* col2 = nullptr;
+
+	if (side/* && white & pointer*/) {
+		/*
+		for (moves = 0; moves < 4; moves++) {
+			for (j = square;;) {
+				if (!mailbox[mailboxLookup[j] + mailboxMoves[0][moves]])
+					break;
+				j += pieceMoves[0][moves];
+
+				if ((u64)1 << j & white)
+					break;
+				else if ((u64)1 << j & black) {
+					if ((u64)1 << j & rooks || (u64)1 << j & queens)
+						return true;
+					break;
+				}
+			}
+		}
+
+		for (moves = 0; moves < 4; moves++) {
+			for (j = square;;) {
+				if (!mailbox[mailboxLookup[j] + mailboxMoves[1][moves]])
+					break;
+				j += pieceMoves[1][moves];
+
+				if ((u64)1 << j & white)
+					break;
+				else if ((u64)1 << j & black) {
+					if ((u64)1 << j & bishops || (u64)1 << j & queens)
+						return true;
+					break;
+				}
+			}
+		}
+
+		for (moves = 0; moves < 8; moves++) {
+			j = square;
+			if (!mailbox[mailboxLookup[j] + mailboxMoves[2][moves]])
+				continue;
+			j += pieceMoves[2][moves];
+
+			if ((u64)1 << j & white)
+				break;
+			else if ((u64)1 << j & black) {
+				if ((u64)1 << j & knights)
+					return true;
+				break;
+			}
+		}
+
+		for (moves = 0; moves < 8; moves++) {
+			j = square;
+			if (!mailbox[mailboxLookup[j] + mailboxMoves[3][moves]])
+				continue;
+			j += pieceMoves[3][moves];
+			if ((u64)1 << j & white)
+				continue;
+			else if ((u64)1 << j & black) {
+				if ((u64)1 << j & kings)
+					return true;
+				continue;
+			}
+		}
+		*/
+		col1 = &white;
+		col2 = &black;
+		if (!(rRankMask & pointer) && black & pointer >> 7 && pawns & pointer >> 7)
+			return true;
+		if (!(lRankMask & pointer) && black & pointer >> 9 && pawns & pointer >> 9)
+			return true;
+	}
+	else /*if (!side && black & pointer)*/ {
+		/*
+		for (int piece = 0; piece < 4; piece++) {
+			for (moves = 0; moves < pieceMoveSizes[piece]; moves++) {
+				for (j = square;;) {
+					if (!mailbox[mailboxLookup[j] + mailboxMoves[piece][moves]])
+						break;
+					j += pieceMoves[piece][moves];
+
+					if ((u64)1 << j & black)
+						break;
+					else if ((u64)1 << j & white) {
+						switch (piece) {
+						case 0:
+							if ((u64)1 << j & rooks || (u64)1 << j & queens)
+								return true;
+						case 1:
+							if ((u64)1 << j & bishops || (u64)1 << j & queens)
+								return true;
+						case 2:
+							if ((u64)1 << j & knights)
+								return true;
+						case 3:
+							if ((u64)1 << j & kings)
+								return true;
+						default:
+							break;
+						}
+						break;
+					}
+					if (!slidingPiece[piece])
+						break;
+				}
+			}
+		}
+
+		for (moves = 0; moves < 4; moves++) {
+			for (j = square;;) {
+				if (!mailbox[mailboxLookup[j] + mailboxMoves[0][moves]])
+					break;
+				j += pieceMoves[0][moves];
+
+				if ((u64)1 << j & black)
+					break;
+				else if ((u64)1 << j & white) {
+					if ((u64)1 << j & rooks || (u64)1 << j & queens)
+						return true;
+					break;
+				}
+			}
+		}
+
+		for (moves = 0; moves < 4; moves++) {
+			for (j = square;;) {
+				if (!mailbox[mailboxLookup[j] + mailboxMoves[1][moves]])
+					break;
+				j += pieceMoves[1][moves];
+
+				if ((u64)1 << j & black)
+					break;
+				else if ((u64)1 << j & white) {
+					if ((u64)1 << j & bishops || (u64)1 << j & queens)
+						return true;
+					break;
+				}
+			}
+		}
+
+		for (moves = 0; moves < 8; moves++) {
+			j = square;
+			if (!mailbox[mailboxLookup[j] + mailboxMoves[2][moves]])
+				continue;
+			j += pieceMoves[2][moves];
+
+			if ((u64)1 << j & black)
+				continue;
+			else if ((u64)1 << j & white) {
+				if ((u64)1 << j & knights)
+					return true;
+				break;
+			}
+		}
+
+		for (moves = 0; moves < 8; moves++) {
+			j = square;
+			if (!mailbox[mailboxLookup[j] + mailboxMoves[3][moves]])
+				continue;
+			j += pieceMoves[3][moves];
+			if ((u64)1 << j & black)
+				continue;
+			else if ((u64)1 << j & white) {
+				if ((u64)1 << j & kings)
+					return true;
+				continue;
+			}
+		}
+		*/
+		col2 = &white;
+		col1 = &black;
+		if (!(lRankMask & pointer) && white & pointer << 7 && pawns & pointer << 7)
+			return true;
+		if (!(rRankMask & pointer) && white & pointer << 9 && pawns & pointer << 9)
+			return true;
+	}
+	for (int piece = 0; piece < 4; piece++) {
+		for (moves = 0; moves < pieceMoveSizes[piece]; moves++) {
+			for (j = square;;) {
+				if (!mailbox[mailboxLookup[j] + mailboxMoves[piece][moves]])
+					break;
+				j += pieceMoves[piece][moves];
+
+				if ((u64)1 << j & *col1)
+					break;
+				else if ((u64)1 << j & *col2) {
+					switch (piece) {
+					case 0:
+						if ((u64)1 << j & rooks || (u64)1 << j & queens)
+							return true;
+						break;
+					case 1:
+						if ((u64)1 << j & bishops || (u64)1 << j & queens)
+							return true;
+						break;
+					case 2:
+						if ((u64)1 << j & knights)
+							return true;
+						break;
+					case 3:
+						if ((u64)1 << j & kings)
+							return true;
+						break;
+					default:
+						break;
+					}
+					break;
+				}
+				if (!slidingPiece[piece])
+					break;
+			}
+		}
+	}
+	return false;
+}
+
+void printBoardwAttacks() {
+	u64 pointer = 1;
+	std::cout << "8  ";
+	for (int i = 0; i < 64; i++) {
+		char piece;
+		if (attacked(i)) {
+			if ((!side && pointer & white) || (side && pointer & black))
+				SetConsoleTextAttribute(hConsole, 0x0002);
+			else
+				SetConsoleTextAttribute(hConsole, 0x0004);
+		}
+		if (empty & pointer)
+			piece = '-';
+		else {
+			if (pawns & pointer)
+				piece = 'p';
+			else if (rooks & pointer)
+				piece = 'r';
+			else if (knights & pointer)
+				piece = 'n';
+			else if (bishops & pointer)
+				piece = 'b';
+			else if (kings & pointer)
+				piece = 'k';
+			else if (queens & pointer)
+				piece = 'q';
+			else
+				piece = 'e';
+
+			if (white & pointer)
+				piece = toupper(piece);
+		}
+
+		std::cout << piece << ' ';
+		SetConsoleTextAttribute(hConsole, 0x0007);
+		pointer <<= 1;
+		if (!((i + 1) % 8)) {
+			int num = 8 - (i + 1) / 8;
+			if (num)
+				std::cout << '\n' << num << "  ";
+		}
+	}
+	std::cout << "\n\n   A B C D E F G H\n";
+}
 
 void loadBoardFromFen(std::string fen) {
 	pawns = 0;
@@ -581,7 +854,7 @@ void loadBoardFromFen(std::string fen) {
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(PERFT2n);
+	loadBoardFromFen(PERFT3);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
@@ -598,14 +871,16 @@ int main() {
 
 	std::cout << movePointer << '\n';
 
-	std::cout << "\naddmove\n";
-	start = std::chrono::steady_clock::now();
-	addMove(0,0,0);
-	end = std::chrono::steady_clock::now();
-	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() << "ns\n";
 
-	std::cout << "\nnothing\n";
+	std::cout << "\ncheck\n";
 	start = std::chrono::steady_clock::now();
+	for (int i = 0; i < tries; i++) {
+		attacked(39);
+	}
 	end = std::chrono::steady_clock::now();
-	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() << "ns\n";
+	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() / tries << "ns\n";
+	
+	std::cout << attacked(39) << "\n\n\n";
+
+	printBoardwAttacks();
 }
