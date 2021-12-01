@@ -419,15 +419,15 @@ bool attacked(int square) {
 			col1 = &black;
 		col2 = &black;
 		if (pointer & empty) {
-			if (!(rRankMask & pointer) && ~white & pointer >> 7 && pawns & pointer >> 7)
+			if (!(lRankMask & pointer) && ~white & pointer >> 7 && pawns & pointer >> 7)
 				return true;
-			if (!(lRankMask & pointer) && ~white & pointer >> 9 && pawns & pointer >> 9)
+			if (!(rRankMask & pointer) && ~white & pointer >> 9 && pawns & pointer >> 9)
 				return true;
 		}
 		else {
-			if (!(rRankMask & pointer) && ~*col1 & pointer >> 7 && pawns & pointer >> 7)
+			if (!(lRankMask & pointer) && ~*col1 & pointer >> 7 && pawns & pointer >> 7)
 				return true;
-			if (!(lRankMask & pointer) && ~*col1 & pointer >> 9 && pawns & pointer >> 9)
+			if (!(rRankMask & pointer) && ~*col1 & pointer >> 9 && pawns & pointer >> 9)
 				return true;
 		}
 	}
@@ -438,15 +438,15 @@ bool attacked(int square) {
 			col1 = &black;
 		col2 = &white;
 		if (pointer & empty) {
-			if (!(lRankMask & pointer) && ~black & pointer << 7 && pawns & pointer << 7)
+			if (!(rRankMask & pointer) && ~black & pointer << 7 && pawns & pointer << 7)
 				return true;
-			if (!(rRankMask & pointer) && ~black & pointer << 9 && pawns & pointer << 9)
+			if (!(lRankMask & pointer) && ~black & pointer << 9 && pawns & pointer << 9)
 				return true;
 		}
 		else {
-			if (!(rRankMask & pointer) && ~*col1 & pointer >> 7 && pawns & pointer >> 7)
+			if (!(rRankMask & pointer) && ~*col1 & pointer << 7 && pawns & pointer << 7)
 				return true;
-			if (!(lRankMask & pointer) && ~*col1 & pointer >> 9 && pawns & pointer >> 9)
+			if (!(lRankMask & pointer) && ~*col1 & pointer << 9 && pawns & pointer << 9)
 				return true;
 		}
 	}
@@ -504,20 +504,26 @@ bool protectedSq(int square) {
 	if (square == 19)
 		int x = 0;
 
-	if (side) {
-		col1 = &white;
+	if (!side) {
+		if (pointer & white)
+			col1 = &white;
+		else if (pointer & black)
+			col1 = &black;
 		col2 = &black;
-		if (!(rRankMask & pointer) && black & pointer >> 7 && pawns & pointer >> 7)
+		if (!(rRankMask & pointer) && ~*col2 & pointer >> 7 && pawns & pointer >> 7)
 			return true;
-		if (!(lRankMask & pointer) && black & pointer >> 9 && pawns & pointer >> 9)
+		if (!(lRankMask & pointer) && ~*col2 & pointer >> 9 && pawns & pointer >> 9)
 			return true;
 	}
 	else {
-		col1 = &black;
+		if (pointer & white)
+			col1 = &white;
+		else if (pointer & black)
+			col1 = &black;
 		col2 = &white;
-		if (!(rRankMask & pointer) && white & pointer >> 7 && pawns & pointer >> 7)
+		if (!(lRankMask & pointer) && ~*col2 & pointer << 7 && pawns & pointer >> 7)
 			return true;
-		if (!(lRankMask & pointer) && white & pointer >> 9 && pawns & pointer >> 9)
+		if (!(rRankMask & pointer) && ~*col2 & pointer << 9 && pawns & pointer >> 9)
 			return true;
 	}
 	for (int piece = 0; piece < 4; piece++) {
@@ -790,7 +796,7 @@ void loadBoardFromFen(std::string fen) {
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(PERFT3);
+	loadBoardFromFen(PERFT2);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
