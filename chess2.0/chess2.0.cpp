@@ -409,16 +409,27 @@ bool attacked(int square) {
 	u64* col1 = nullptr;
 	u64* col2 = nullptr;
 
+	if (square == 19)
+		int x = 0;
+
 	if (side) {
 		if (pointer & white)
 			col1 = &white;
 		else if (pointer & black)
 			col1 = &black;
 		col2 = &black;
-		if (!(rRankMask & pointer) && ~white & pointer >> 7 && pawns & pointer)
-			return true;
-		if (!(lRankMask & pointer) && ~white & pointer >> 9 && pawns & pointer)
-			return true;
+		if (pointer & empty) {
+			if (!(rRankMask & pointer) && ~white & pointer >> 7 && pawns & pointer >> 7)
+				return true;
+			if (!(lRankMask & pointer) && ~white & pointer >> 9 && pawns & pointer >> 9)
+				return true;
+		}
+		else {
+			if (!(rRankMask & pointer) && ~*col1 & pointer >> 7 && pawns & pointer >> 7)
+				return true;
+			if (!(lRankMask & pointer) && ~*col1 & pointer >> 9 && pawns & pointer >> 9)
+				return true;
+		}
 	}
 	else  {
 		if (pointer & white)
@@ -426,10 +437,18 @@ bool attacked(int square) {
 		else if (pointer & black)
 			col1 = &black;
 		col2 = &white;
-		if (!(lRankMask & pointer) && ~black & pointer << 7 && pawns & pointer)
-			return true;
-		if (!(rRankMask & pointer) && ~black & pointer << 9 && pawns & pointer)
-			return true;
+		if (pointer & empty) {
+			if (!(lRankMask & pointer) && ~black & pointer << 7 && pawns & pointer << 7)
+				return true;
+			if (!(rRankMask & pointer) && ~black & pointer << 9 && pawns & pointer << 9)
+				return true;
+		}
+		else {
+			if (!(rRankMask & pointer) && ~*col1 & pointer >> 7 && pawns & pointer >> 7)
+				return true;
+			if (!(lRankMask & pointer) && ~*col1 & pointer >> 9 && pawns & pointer >> 9)
+				return true;
+		}
 	}
 	for (int piece = 0; piece < 4; piece++) {
 		for (moves = 0; moves < pieceMoveSizes[piece]; moves++) {
@@ -472,17 +491,85 @@ bool attacked(int square) {
 	return false;
 }
 
+bool protectedSq(int square) {
+	u8 j, moves;
+	u64 pointer = (u64)1 << square;
+
+	if (pointer & empty)
+		return false;
+
+	u64* col1 = nullptr;
+	u64* col2 = nullptr;
+
+	if (square == 19)
+		int x = 0;
+
+	if (side) {
+		col1 = &white;
+		col2 = &black;
+		if (!(rRankMask & pointer) && black & pointer >> 7 && pawns & pointer >> 7)
+			return true;
+		if (!(lRankMask & pointer) && black & pointer >> 9 && pawns & pointer >> 9)
+			return true;
+	}
+	else {
+		col1 = &black;
+		col2 = &white;
+		if (!(rRankMask & pointer) && white & pointer >> 7 && pawns & pointer >> 7)
+			return true;
+		if (!(lRankMask & pointer) && white & pointer >> 9 && pawns & pointer >> 9)
+			return true;
+	}
+	for (int piece = 0; piece < 4; piece++) {
+		for (moves = 0; moves < pieceMoveSizes[piece]; moves++) {
+			for (j = square;;) {
+				if (!mailbox[mailboxLookup[j] + mailboxMoves[piece][moves]])
+					break;
+				j += pieceMoves[piece][moves];
+
+				if (col2)
+					if ((u64)1 << j & *col2)
+						break;
+				if ((u64)1 << j & *col1) {
+					switch (piece) {
+					case 0:
+						if ((u64)1 << j & rooks || (u64)1 << j & queens)
+							return true;
+						break;
+					case 1:
+						if ((u64)1 << j & bishops || (u64)1 << j & queens)
+							return true;
+						break;
+					case 2:
+						if ((u64)1 << j & knights)
+							return true;
+						break;
+					case 3:
+						if ((u64)1 << j & kings)
+							return true;
+						break;
+					default:
+						break;
+					}
+					break;
+				}
+				if (!slidingPiece[piece])
+					break;
+			}
+		}
+	}
+	return false;
+}
+
 void printBoardwAttacks() {
 	u64 pointer = 1;
 	std::cout << "8  ";
 	for (int i = 0; i < 64; i++) {
 		char piece;
-		if (attacked(i)) {
-			if ((!side && pointer & white) || (side && pointer & black))
-				SetConsoleTextAttribute(hConsole, 0x0002);
-			else
-				SetConsoleTextAttribute(hConsole, 0x0004);
-		}
+		if (attacked(i)) 
+			SetConsoleTextAttribute(hConsole, 0x0004);
+		else if (protectedSq(i))
+			SetConsoleTextAttribute(hConsole, 0x0002);
 		if (empty & pointer)
 			piece = '-';
 		else {
