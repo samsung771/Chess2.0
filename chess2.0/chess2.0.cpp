@@ -410,19 +410,25 @@ bool attacked(int square) {
 	u64* col2 = nullptr;
 
 	if (side) {
-		col1 = &white;
+		if (pointer & white)
+			col1 = &white;
+		else if (pointer & black)
+			col1 = &black;
 		col2 = &black;
-		if (!(rRankMask & pointer) && black & pointer >> 7 && pawns & pointer >> 7)
+		if (!(rRankMask & pointer) && ~white & pointer >> 7 && pawns & pointer)
 			return true;
-		if (!(lRankMask & pointer) && black & pointer >> 9 && pawns & pointer >> 9)
+		if (!(lRankMask & pointer) && ~white & pointer >> 9 && pawns & pointer)
 			return true;
 	}
 	else  {
+		if (pointer & white)
+			col1 = &white;
+		else if (pointer & black)
+			col1 = &black;
 		col2 = &white;
-		col1 = &black;
-		if (!(lRankMask & pointer) && white & pointer << 7 && pawns & pointer << 7)
+		if (!(lRankMask & pointer) && ~black & pointer << 7 && pawns & pointer)
 			return true;
-		if (!(rRankMask & pointer) && white & pointer << 9 && pawns & pointer << 9)
+		if (!(rRankMask & pointer) && ~black & pointer << 9 && pawns & pointer)
 			return true;
 	}
 	for (int piece = 0; piece < 4; piece++) {
@@ -432,9 +438,10 @@ bool attacked(int square) {
 					break;
 				j += pieceMoves[piece][moves];
 
-				if ((u64)1 << j & *col1)
-					break;
-				else if ((u64)1 << j & *col2) {
+				if (col1)
+					if ((u64)1 << j & *col1)
+						break;
+				if ((u64)1 << j & *col2) {
 					switch (piece) {
 					case 0:
 						if ((u64)1 << j & rooks || (u64)1 << j & queens)
