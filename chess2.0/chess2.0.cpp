@@ -409,14 +409,15 @@ bool attacked(int square) {
 	u64* col1 = nullptr;
 	u64* col2 = nullptr;
 
-	if (square == 19)
+	if (square == 61)
 		int x = 0;
 
 	if (side) {
-		if (pointer & white)
-			col1 = &white;
-		else if (pointer & black)
+		if (pointer & black)
 			col1 = &black;
+		else
+			col1 = &white;
+
 		col2 = &black;
 		if (pointer & empty) {
 			if (!(lRankMask & pointer) && ~white & pointer >> 7 && pawns & pointer >> 7)
@@ -434,7 +435,7 @@ bool attacked(int square) {
 	else  {
 		if (pointer & white)
 			col1 = &white;
-		else if (pointer & black)
+		else
 			col1 = &black;
 		col2 = &white;
 		if (pointer & empty) {
@@ -792,11 +793,25 @@ void loadBoardFromFen(std::string fen) {
 	empty = ~(black | white);
 }
 
+bool checkCheck() {
+	u64 pointer = 1;
+	for (int square = 0; square < 64; square++) {
+		if (!side) {
+			if (pointer & kings && pointer & black)
+				return attacked(square);
+		}
+		else {
+			if (pointer & kings && pointer & white)
+				return attacked(square);
+		}
+		pointer <<= 1;
+	}
+}
 
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(PERFT2);
+	loadBoardFromFen(PERFT3c);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
@@ -822,7 +837,7 @@ int main() {
 	end = std::chrono::steady_clock::now();
 	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() / tries << "ns\n";
 	
-	std::cout << attacked(39) << "\n\n\n";
+	std::cout << checkCheck() << "\n\n\n";
 
 	printBoardwAttacks();
 }
