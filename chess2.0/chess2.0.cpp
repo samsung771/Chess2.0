@@ -116,7 +116,7 @@ int ep = -1;
 u8 castle = 15;
 
 move generated[1024];
-move history[100];
+move history[500];
 
 static HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
@@ -191,7 +191,47 @@ void gen (){
 				if (pointer & doubleMoveW && empty & pointer >> 16 && empty & pointer >> 8)
 					addMove(i - 16, i, 0);
 			}
+			/*
 
+			if (pointer & kings) {
+				if ((wKcastle & empty) == wKcastle && castle & KCASTLE)
+					addMove(62, i, 2);
+				if ((wQcastle & empty) == wQcastle && castle & QCASTLE)
+					addMove(58, i, 2);
+			}
+
+			if (pointer & rooks)
+				piece = 0;
+			else if (pointer & bishops)
+				piece = 1;
+			else if (pointer & knights)
+				piece = 2;
+			else if (pointer & queens)
+				piece = 4;
+			else if (pointer & kings)
+				piece = 3;
+
+
+			for (moves = 0; moves < pieceMoveSizes[piece]; moves++) {
+				for (j = i;;) {
+					if (!mailbox[mailboxLookup[j] + mailboxMoves[piece][moves]])
+						break;
+					j += pieceMoves[piece][moves];
+
+					if ((u64)1 << j & white)
+						break;
+					else if ((u64)1 << j & empty)
+						addMove(j, i, 0);
+					else {
+						addMove(j, i, 1);
+						break;
+					}
+					if (!slidingPiece[piece])
+						break;
+				}
+			}
+			*/
+			
 			else if (pointer & rooks) {
 				for (moves = 0; moves < 4; moves++) {
 					for (j = i;;) {
@@ -286,6 +326,7 @@ void gen (){
 				if ((wQcastle & empty) == wQcastle && castle & QCASTLE) 
 					addMove(58, i, 2);
 			}
+			
 		}
 		else if (!side && black & pointer) {
 			if (pointer & pawns) {
@@ -302,7 +343,46 @@ void gen (){
 				if (pointer & doubleMoveB && empty & pointer << 16 && empty & pointer << 8)
 					addMove(i + 16, i, 0);
 			}
+			/*
+			if (pointer & kings) {
+				if ((bKcastle & empty) == bKcastle && castle & kCASTLE)
+					addMove(6, i, 2);
+				if ((bQcastle & empty) == bQcastle && castle & qCASTLE)
+					addMove(2, i, 2);
+			}
 
+			if (pointer & rooks)
+				piece = 0;
+			else if (pointer & bishops)
+				piece = 1;
+			else if (pointer & knights)
+				piece = 2;
+			else if (pointer & queens)
+				piece = 4;
+			else if (pointer & kings)
+				piece = 3;
+
+
+			for (moves = 0; moves < pieceMoveSizes[piece]; moves++) {
+				for (j = i;;) {
+					if (!mailbox[mailboxLookup[j] + mailboxMoves[piece][moves]])
+						break;
+					j += pieceMoves[piece][moves];
+
+					if ((u64)1 << j & black)
+						break;
+					else if ((u64)1 << j & empty)
+						addMove(j, i, 0);
+					else {
+						addMove(j, i, 1);
+						break;
+					}
+					if (!slidingPiece[piece])
+						break;
+				}
+			}
+			*/
+			
 			else if (pointer & rooks) {
 				for (moves = 0; moves < 4; moves++) {
 					for (j = i;;) {
@@ -397,6 +477,7 @@ void gen (){
 				if ((bQcastle & empty) == bQcastle && castle & qCASTLE)
 					addMove(2, i, 2);
 			}
+			
 		}
 		pointer <<= 1;
 	}
@@ -562,6 +643,59 @@ bool protectedSq(int square) {
 				}
 				if (!slidingPiece[piece])
 					break;
+			}
+		}
+	}
+	return false;
+}
+
+bool makeMove(int to, int from) {
+	for (int i = 0; i < movePointer; i++) {
+		if (generated[i].from = from){
+			if (generated[i].to = to) {
+				if (generated[i].moveInfo & 1) {
+					u64 mask = (u64)1 << from;
+					mask = ~mask;
+					black &= mask;
+					white &= mask;
+					pawns &= mask;
+					rooks &= mask;
+					knights &= mask;
+					bishops &= mask;
+					kings &= mask;
+					queens &= mask;
+				}
+				int piece;
+				u64 pointer = (u64)1 << from;
+				if (pointer & rooks)
+					piece = 0;
+				else if (pointer & bishops)
+					piece = 1;
+				else if (pointer & knights)
+					piece = 2;
+				else if (pointer & queens)
+					piece = 4;
+				else if (pointer & kings)
+					piece = 3;
+				else 
+					piece = 5;
+
+				u64 toPointer = (u64)1 << to;
+
+				switch (piece) {
+				case 0:
+					rooks |= toPointer;
+					break;
+				case 1:
+					bishops |= toPointer;
+					break;
+				case 2:
+					knights |= toPointer;
+					break;
+				case 3:
+					kings |= toPointer;
+					break;
+				}
 			}
 		}
 	}
