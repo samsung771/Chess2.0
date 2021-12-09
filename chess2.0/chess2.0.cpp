@@ -672,6 +672,9 @@ bool checkCheck() {
 }
 
 void undoMove() {
+	if (hmovePointer == 0)
+		return;
+
 	u64 toPointer = (u64)1 << history[hmovePointer - 1].m.to;
 	u64 pointer = (u64)1 << history[hmovePointer - 1].m.from;
 
@@ -756,6 +759,7 @@ void undoMove() {
 	}
 
 	empty = ~(white | black);
+	side = !history[hmovePointer - 1].side;
 	hmovePointer--;
 }
 
@@ -859,8 +863,12 @@ bool makeMove(int to, int from) {
 
 				empty = ~(white | black);
 
-				if (checkCheck)
+				
+
+				if (!checkCheck()) {
+					side = !side;
 					return true;
+				}
 				else
 					undoMove();
 				return false;
@@ -1127,7 +1135,7 @@ int main() {
 	std::cout << checkCheck() << "\n\n\n";
 
 	printBoardwAttacks();
-	/*
+	
 	std::cout << "\nmakemove\n";
 	start = std::chrono::steady_clock::now();
 	for (int i = 0; i < tries; i++) {
@@ -1136,7 +1144,7 @@ int main() {
 	}
 	end = std::chrono::steady_clock::now();
 	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() / tries << "ns\n";
-	*/
+	
 	std::cout << '\n' << makeMove(44, 52) << '\n';
 	
 	printBoard();
