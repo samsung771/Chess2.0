@@ -111,12 +111,19 @@ struct move {
 	unsigned int ply;
 };
 
+struct hmove {
+	move m;
+	u8 piece;
+	bool side;
+};
+
 int movePointer = 0;
+int hmovePointer = 0;
 int ep = -1;
 u8 castle = 15;
 
 move generated[1024];
-move history[500];
+hmove history[500];
 
 static HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
@@ -649,24 +656,152 @@ bool protectedSq(int square) {
 	return false;
 }
 
+bool checkCheck() {
+	u64 pointer = 1;
+	for (int square = 0; square < 64; square++) {
+		if (!side) {
+			if (pointer & kings && pointer & black)
+				return attacked(square);
+		}
+		else {
+			if (pointer & kings && pointer & white)
+				return attacked(square);
+		}
+		pointer <<= 1;
+	}
+}
+
+void undoMove() {
+	u64 toPointer = (u64)1 << history[hmovePointer - 1].m.to;
+	u64 pointer = (u64)1 << history[hmovePointer - 1].m.from;
+
+	u8 piece;
+
+	if (toPointer & rooks)
+		piece = 0;
+	else if (toPointer & bishops)
+		piece = 1;
+	else if (toPointer & knights)
+		piece = 2;
+	else if (toPointer & queens)
+		piece = 4;
+	else if (toPointer & kings)
+		piece = 3;
+	else
+		piece = 5;
+
+	switch (piece) {
+	case 0:
+		rooks |= pointer;
+		break;
+	case 1:
+		bishops |= pointer;
+		break;
+	case 2:
+		knights |= pointer;
+		break;
+	case 3:
+		kings |= pointer;
+		break;
+	case 4:
+		queens |= pointer;
+		break;
+	case 5:
+		pawns |= pointer;
+		break;
+	}
+	
+
+	if (history[hmovePointer - 1].side)
+		white |= pointer;
+	else
+		black |= pointer;
+
+	if (history[hmovePointer - 1].m.moveInfo & 1) {
+		u64 mask = ~toPointer;
+		black &= mask;
+		white &= mask;
+
+		pawns &= mask;
+		rooks &= mask;
+		knights &= mask;
+		bishops &= mask;
+		kings &= mask;
+		queens &= mask;
+
+		switch (history[hmovePointer - 1].piece) {
+		case 0:
+			rooks |= toPointer;
+			break;
+		case 1:
+			bishops |= toPointer;
+			break;
+		case 2:
+			knights |= toPointer;
+			break;
+		case 3:
+			kings |= toPointer;
+			break;
+		case 4:
+			queens |= toPointer;
+			break;
+		case 5:
+			pawns |= toPointer;
+			break;
+		}
+
+		if (history[hmovePointer - 1].side)
+			black |= toPointer;
+		else
+			white |= toPointer;
+	}
+
+	hmovePointer--;
+}
+
 bool makeMove(int to, int from) {
 	for (int i = 0; i < movePointer; i++) {
 		if (generated[i].from = from){
 			if (generated[i].to = to) {
+				u64 toPointer = (u64)1 << to;
+
+				u8 piece;
+
+				hmove h;
+				h.m = generated[i];
+				h.piece = 6;
+				h.side = side;
+
 				if (generated[i].moveInfo & 1) {
-					u64 mask = (u64)1 << from;
-					mask = ~mask;
+					u64 mask = ~toPointer;
 					black &= mask;
 					white &= mask;
+
+					if (toPointer & rooks)
+						piece = 0;
+					else if (toPointer & bishops)
+						piece = 1;
+					else if (toPointer & knights)
+						piece = 2;
+					else if (toPointer & queens)
+						piece = 4;
+					else if (toPointer & kings)
+						piece = 3;
+					else
+						piece = 5;
+
 					pawns &= mask;
 					rooks &= mask;
 					knights &= mask;
 					bishops &= mask;
 					kings &= mask;
 					queens &= mask;
+
+					h.piece = piece;
 				}
-				int piece;
+
 				u64 pointer = (u64)1 << from;
+
 				if (pointer & rooks)
 					piece = 0;
 				else if (pointer & bishops)
@@ -680,7 +815,6 @@ bool makeMove(int to, int from) {
 				else 
 					piece = 5;
 
-				u64 toPointer = (u64)1 << to;
 
 				switch (piece) {
 				case 0:
@@ -695,7 +829,28 @@ bool makeMove(int to, int from) {
 				case 3:
 					kings |= toPointer;
 					break;
+				case 4:
+					queens |= toPointer;
+					break;
+				case 5:
+					pawns |= toPointer;
+					break;
 				}
+
+
+				if (side)
+					white |= pointer;
+				else
+					black |= pointer;
+
+				history[hmovePointer] = h;
+				hmovePointer++;
+
+				if (checkCheck)
+					return true;
+				else
+					undoMove();
+				return false;
 			}
 		}
 	}
@@ -927,25 +1082,10 @@ void loadBoardFromFen(std::string fen) {
 	empty = ~(black | white);
 }
 
-bool checkCheck() {
-	u64 pointer = 1;
-	for (int square = 0; square < 64; square++) {
-		if (!side) {
-			if (pointer & kings && pointer & black)
-				return attacked(square);
-		}
-		else {
-			if (pointer & kings && pointer & white)
-				return attacked(square);
-		}
-		pointer <<= 1;
-	}
-}
-
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(PERFT3c);
+	loadBoardFromFen(PERFT3);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
@@ -974,4 +1114,19 @@ int main() {
 	std::cout << checkCheck() << "\n\n\n";
 
 	printBoardwAttacks();
+
+	std::cout << "\nmakemove\n";
+	start = std::chrono::steady_clock::now();
+	for (int i = 0; i < tries; i++) {
+		makeMove(44,52);
+		undoMove();
+	}
+	end = std::chrono::steady_clock::now();
+	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() / tries << "ns\n";
+
+	makeMove(44, 52);
+	printBoard();
+	undoMove();
+	printBoard();
+
 }
