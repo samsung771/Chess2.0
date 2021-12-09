@@ -690,6 +690,16 @@ void undoMove() {
 	else
 		piece = 5;
 
+	u64 mask = ~toPointer;
+	black &= mask;
+	white &= mask;
+	pawns &= mask;
+	rooks &= mask;
+	knights &= mask;
+	bishops &= mask;
+	kings &= mask;
+	queens &= mask;
+
 	switch (piece) {
 	case 0:
 		rooks |= pointer;
@@ -718,17 +728,6 @@ void undoMove() {
 		black |= pointer;
 
 	if (history[hmovePointer - 1].m.moveInfo & 1) {
-		u64 mask = ~toPointer;
-		black &= mask;
-		white &= mask;
-
-		pawns &= mask;
-		rooks &= mask;
-		knights &= mask;
-		bishops &= mask;
-		kings &= mask;
-		queens &= mask;
-
 		switch (history[hmovePointer - 1].piece) {
 		case 0:
 			rooks |= toPointer;
@@ -756,13 +755,14 @@ void undoMove() {
 			white |= toPointer;
 	}
 
+	empty = ~(white | black);
 	hmovePointer--;
 }
 
 bool makeMove(int to, int from) {
 	for (int i = 0; i < movePointer; i++) {
-		if (generated[i].from = from){
-			if (generated[i].to = to) {
+		if (generated[i].from == from){
+			if (generated[i].to == to) {
 				u64 toPointer = (u64)1 << to;
 
 				u8 piece;
@@ -839,12 +839,25 @@ bool makeMove(int to, int from) {
 
 
 				if (side)
-					white |= pointer;
+					white |= toPointer;
 				else
-					black |= pointer;
+					black |= toPointer;
 
 				history[hmovePointer] = h;
 				hmovePointer++;
+
+				u64 mask = ~pointer;
+
+				black &= mask;
+				white &= mask;
+				pawns &= mask;
+				rooks &= mask;
+				knights &= mask;
+				bishops &= mask;
+				kings &= mask;
+				queens &= mask;
+
+				empty = ~(white | black);
 
 				if (checkCheck)
 					return true;
@@ -1114,7 +1127,7 @@ int main() {
 	std::cout << checkCheck() << "\n\n\n";
 
 	printBoardwAttacks();
-
+	/*
 	std::cout << "\nmakemove\n";
 	start = std::chrono::steady_clock::now();
 	for (int i = 0; i < tries; i++) {
@@ -1123,8 +1136,9 @@ int main() {
 	}
 	end = std::chrono::steady_clock::now();
 	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() / tries << "ns\n";
-
-	makeMove(44, 52);
+	*/
+	std::cout << '\n' << makeMove(44, 52) << '\n';
+	
 	printBoard();
 	undoMove();
 	printBoard();
