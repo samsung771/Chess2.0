@@ -759,7 +759,7 @@ void undoMove() {
 	}
 
 	empty = ~(white | black);
-	side = !history[hmovePointer - 1].side;
+	side = history[hmovePointer - 1].side;
 	hmovePointer--;
 }
 
@@ -804,6 +804,7 @@ bool makeMove(int to, int from) {
 					h.piece = piece;
 				}
 
+
 				u64 pointer = (u64)1 << from;
 
 				if (pointer & rooks)
@@ -842,10 +843,14 @@ bool makeMove(int to, int from) {
 				}
 
 
-				if (side)
+				if (side) {
 					white |= toPointer;
-				else
+					black &= ~toPointer;
+				}
+				else {
 					black |= toPointer;
+					white &= ~toPointer;
+				}
 
 				history[hmovePointer] = h;
 				hmovePointer++;
@@ -1151,4 +1156,100 @@ int main() {
 	undoMove();
 	printBoard();
 
+	while (true) {
+		printBoard();
+		std::cout << "\nEnter the piece you are moving: \n";
+		char f[2];
+		std::cin >> f;
+		
+		int from = 0;
+
+		switch (f[0])
+		{
+		case 'h':
+			from++;
+		case 'g':
+			from++;
+		case 'f':
+			from++;
+		case 'e':
+			from++;
+		case 'd':
+			from++;
+		case 'c':
+			from++;
+		case 'b':
+			from++;
+		default:
+			break;
+		}
+		
+		switch (f[1])
+		{
+		case '1':
+			from += 8;
+		case '2':
+			from += 8;
+		case '3':
+			from += 8;
+		case '4':
+			from += 8;
+		case '5':
+			from += 8;
+		case '6':
+			from += 8;
+		case '7':
+			from += 8;
+		default:
+			break;
+		}
+
+		std::cout << "\nEnter the place you are moving to: \n";
+		char t[2];
+		std::cin >> t;
+
+		int to = 0;
+
+		switch (t[0])
+		{
+		case 'h':
+			to++;
+		case 'g':
+			to++;
+		case 'f':
+			to++;
+		case 'e':
+			to++;
+		case 'd':
+			to++;
+		case 'c':
+			to++;
+		case 'b':
+			to++;
+		default:
+			break;
+		}
+
+		switch (t[1])
+		{
+		case '1':
+			to += 8;
+		case '2':
+			to += 8;
+		case '3':
+			to += 8;
+		case '4':
+			to += 8;
+		case '5':
+			to += 8;
+		case '6':
+			to += 8;
+		case '7':
+			to += 8;
+		default:
+			break;
+		}
+
+		makeMove(to, from);
+	}
 }
