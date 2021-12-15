@@ -188,9 +188,9 @@ void gen (){
 				if (!(lRankMask & pointer) && black & pointer >> 9)
 					addMove(i - 9, i, 1);
 				if (!(rRankMask & pointer) && (u64)1 << ep & pointer >> 7)
-					addMove(i - 7, i, 4);
+					addMove(i - 7, i, 8);
 				if (!(lRankMask & pointer) && (u64)1 << ep & pointer >> 9)
-					addMove(i - 9, i, 4);
+					addMove(i - 9, i, 8);
 				if (!(lRankMask & pointer) && black & pointer >> 9)
 					addMove(i - 9, i, 1);
 				if (empty & pointer >> 8)
@@ -331,7 +331,7 @@ void gen (){
 				if ((wKcastle & empty) == wKcastle && castle & KCASTLE) 
 					addMove(62, i, 2);
 				if ((wQcastle & empty) == wQcastle && castle & QCASTLE) 
-					addMove(58, i, 2);
+					addMove(58, i, 4);
 			}
 			
 		}
@@ -342,9 +342,9 @@ void gen (){
 				if (!(rRankMask & pointer) && white & pointer << 9)
 					addMove(i + 9, i, 1);
 				if (!(lRankMask & pointer) && (u64)1 << ep & pointer << 7)
-					addMove(i + 7, i, 4);
+					addMove(i + 7, i, 8);
 				if (!(rRankMask & pointer) && (u64)1 << ep & pointer << 9)
-					addMove(i + 9, i, 4);
+					addMove(i + 9, i, 8);
 				if (empty & pointer << 8)
 					addMove(i + 8, i, 0);
 				if (pointer & doubleMoveB && empty & pointer << 16 && empty & pointer << 8)
@@ -482,7 +482,7 @@ void gen (){
 				if ((bKcastle & empty) == bKcastle && castle & kCASTLE)
 					addMove(6, i, 2);
 				if ((bQcastle & empty) == bQcastle && castle & qCASTLE)
-					addMove(2, i, 2);
+					addMove(2, i, 4);
 			}
 			
 		}
@@ -593,7 +593,7 @@ bool protectedSq(int square) {
 	if (square == 19)
 		int x = 0;
 
-	if (!side) {
+	if (side) {
 		if (pointer & white)
 			col1 = &white;
 		else if (pointer & black)
@@ -776,6 +776,7 @@ bool makeMove(int to, int from) {
 				h.piece = 6;
 				h.side = side;
 
+				//capture
 				if (generated[i].moveInfo & 1) {
 					u64 mask = ~toPointer;
 					black &= mask;
@@ -802,6 +803,56 @@ bool makeMove(int to, int from) {
 					queens &= mask;
 
 					h.piece = piece;
+				}
+				//king side castle
+				else if (generated[i].moveInfo & 2) {
+					if (side) {
+						if (attacked(62) || attacked(61))
+							return false;
+						u64 rook = (u64)1 << 63;
+						rook = ~rook;
+						rooks &= rook;
+						white &= rook;
+						rook = (~rook) >> 2;
+						rooks |= rook;
+						white |= rook;
+					}
+					else {
+						if (attacked(6) || attacked(5))
+							return false;
+						u64 rook = (u64)1 << 7;
+						rook = ~rook;
+						rooks &= rook;
+						black &= rook;
+						rook = (~rook) >> 2;
+						rooks |= rook;
+						black |= rook;
+					}
+				}
+				//queen side castle
+				else if (generated[i].moveInfo & 4) {
+					if (side) {
+						if (attacked(57) || attacked(58) || attacked(59))
+							return false;
+						u64 rook = (u64)1 << 56;
+						rook = ~rook;
+						rooks &= rook;
+						white &= rook;
+						rook = (~rook) << 3;
+						rooks |= rook;
+						white |= rook;
+					}
+					else {
+						if (attacked(1) || attacked(2) || attacked(3))
+							return false;
+						u64 rook = (u64)1;
+						rook = ~rook;
+						rooks &= rook;
+						black &= rook;
+						rook = (~rook) << 3;
+						rooks |= rook;
+						black |= rook;
+					}
 				}
 
 
@@ -843,14 +894,10 @@ bool makeMove(int to, int from) {
 				}
 
 
-				if (side) {
+				if (side)
 					white |= toPointer;
-					black &= ~toPointer;
-				}
-				else {
+				else
 					black |= toPointer;
-					white &= ~toPointer;
-				}
 
 				history[hmovePointer] = h;
 				hmovePointer++;
@@ -868,8 +915,6 @@ bool makeMove(int to, int from) {
 
 				empty = ~(white | black);
 
-				
-
 				if (!checkCheck()) {
 					side = !side;
 					return true;
@@ -885,12 +930,13 @@ bool makeMove(int to, int from) {
 
 void printBoardwAttacks() {
 	u64 pointer = 1;
+	side = !side;
 	std::cout << "8  ";
 	for (int i = 0; i < 64; i++) {
 		char piece;
 		if (attacked(i)) 
 			SetConsoleTextAttribute(hConsole, 0x0004);
-		else if (protectedSq(i))
+		if (protectedSq(i))
 			SetConsoleTextAttribute(hConsole, 0x0002);
 		if (empty & pointer)
 			piece = '-';
@@ -924,6 +970,7 @@ void printBoardwAttacks() {
 		}
 	}
 	std::cout << "\n\n   A B C D E F G H\n";
+	side = !side;
 }
 
 void loadBoardFromFen(std::string fen) {
@@ -1111,7 +1158,7 @@ void loadBoardFromFen(std::string fen) {
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(PERFT3);
+	loadBoardFromFen(PERFT2);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
@@ -1158,7 +1205,10 @@ int main() {
 
 	while (true) {
 		printBoard();
-		std::cout << "\nEnter the piece you are moving: \n";
+		//std::cout << "\n\n";
+		//printBoardwAttacks();
+		std::cout << "\n\n";
+		std::cout << "\nEnter the square of the piece you are moving: \n";
 		char f[2];
 		std::cin >> f;
 		
@@ -1204,11 +1254,13 @@ int main() {
 			break;
 		}
 
-		std::cout << "\nEnter the place you are moving to: \n";
+		std::cout << "\nEnter the square you are moving to: \n";
 		char t[2];
 		std::cin >> t;
 
 		int to = 0;
+
+		t[0] = tolower(t[0]);
 
 		switch (t[0])
 		{
@@ -1250,6 +1302,12 @@ int main() {
 			break;
 		}
 
-		makeMove(to, from);
+		start = std::chrono::steady_clock::now();
+
+		if (makeMove(to, from))
+			gen();
+
+		end = std::chrono::steady_clock::now();
+		std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() << "ns\n";
 	}
 }
