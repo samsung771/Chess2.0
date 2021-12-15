@@ -757,6 +757,42 @@ void undoMove() {
 		else
 			white |= toPointer;
 	}
+	else if (history[hmovePointer - 1].m.moveInfo & 2) {
+		if (history[hmovePointer - 1].side) {
+			u64 rook = (u64)1 << 63;
+			rooks |= rook;
+			white |= rook;
+			rook = ~(rook >> 2);
+			rooks &= rook;
+			white &= rook;
+		}
+		else {
+			u64 rook = (u64)1 << 7;
+			rooks |= rook;
+			black |= rook;
+			rook = ~(rook >> 2);
+			rooks &= rook;
+			black &= rook;
+		}
+	}
+	else if (history[hmovePointer - 1].m.moveInfo & 4) {
+		if (history[hmovePointer - 1].side) {
+			u64 rook = (u64)1 << 56;
+			rooks |= rook;
+			white |= rook;
+			rook = ~(rook << 3);
+			rooks &= rook;
+			white &= rook;
+		}
+		else {
+			u64 rook = (u64)1;
+			rooks |= rook;
+			black |= rook;
+			rook = ~(rook << 3);
+			rooks &= rook;
+			black &= rook;
+		}
+	}
 
 	empty = ~(white | black);
 	side = history[hmovePointer - 1].side;
@@ -1214,100 +1250,104 @@ int main() {
 		
 		int from = 0;
 
-		switch (f[0])
-		{
-		case 'h':
-			from++;
-		case 'g':
-			from++;
-		case 'f':
-			from++;
-		case 'e':
-			from++;
-		case 'd':
-			from++;
-		case 'c':
-			from++;
-		case 'b':
-			from++;
-		default:
-			break;
+		if (f[0] == 'u')
+			undoMove();
+		else {
+			switch (f[0])
+			{
+			case 'h':
+				from++;
+			case 'g':
+				from++;
+			case 'f':
+				from++;
+			case 'e':
+				from++;
+			case 'd':
+				from++;
+			case 'c':
+				from++;
+			case 'b':
+				from++;
+			default:
+				break;
+			}
+
+			switch (f[1])
+			{
+			case '1':
+				from += 8;
+			case '2':
+				from += 8;
+			case '3':
+				from += 8;
+			case '4':
+				from += 8;
+			case '5':
+				from += 8;
+			case '6':
+				from += 8;
+			case '7':
+				from += 8;
+			default:
+				break;
+			}
+
+			std::cout << "\nEnter the square you are moving to: \n";
+			char t[2];
+			std::cin >> t;
+
+			int to = 0;
+
+			t[0] = tolower(t[0]);
+
+			switch (t[0])
+			{
+			case 'h':
+				to++;
+			case 'g':
+				to++;
+			case 'f':
+				to++;
+			case 'e':
+				to++;
+			case 'd':
+				to++;
+			case 'c':
+				to++;
+			case 'b':
+				to++;
+			default:
+				break;
+			}
+
+			switch (t[1])
+			{
+			case '1':
+				to += 8;
+			case '2':
+				to += 8;
+			case '3':
+				to += 8;
+			case '4':
+				to += 8;
+			case '5':
+				to += 8;
+			case '6':
+				to += 8;
+			case '7':
+				to += 8;
+			default:
+				break;
+			}
+
+			start = std::chrono::steady_clock::now();
+
+			if (makeMove(to, from))
+				gen();
+
+			end = std::chrono::steady_clock::now();
+			std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() << "ns\n";
 		}
-		
-		switch (f[1])
-		{
-		case '1':
-			from += 8;
-		case '2':
-			from += 8;
-		case '3':
-			from += 8;
-		case '4':
-			from += 8;
-		case '5':
-			from += 8;
-		case '6':
-			from += 8;
-		case '7':
-			from += 8;
-		default:
-			break;
-		}
-
-		std::cout << "\nEnter the square you are moving to: \n";
-		char t[2];
-		std::cin >> t;
-
-		int to = 0;
-
-		t[0] = tolower(t[0]);
-
-		switch (t[0])
-		{
-		case 'h':
-			to++;
-		case 'g':
-			to++;
-		case 'f':
-			to++;
-		case 'e':
-			to++;
-		case 'd':
-			to++;
-		case 'c':
-			to++;
-		case 'b':
-			to++;
-		default:
-			break;
-		}
-
-		switch (t[1])
-		{
-		case '1':
-			to += 8;
-		case '2':
-			to += 8;
-		case '3':
-			to += 8;
-		case '4':
-			to += 8;
-		case '5':
-			to += 8;
-		case '6':
-			to += 8;
-		case '7':
-			to += 8;
-		default:
-			break;
-		}
-
-		start = std::chrono::steady_clock::now();
-
-		if (makeMove(to, from))
-			gen();
-
-		end = std::chrono::steady_clock::now();
-		std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() << "ns\n";
 	}
 }
