@@ -793,6 +793,17 @@ void undoMove() {
 			black &= rook;
 		}
 	}
+	else if (history[hmovePointer - 1].m.moveInfo & 8) {
+		if (history[hmovePointer - 1].side) {
+			pawns |= toPointer << 8;
+			black |= toPointer << 8;
+		}
+		else {
+
+			pawns |= toPointer >> 8;
+			white |= toPointer >> 8;
+		}
+	}
 
 	empty = ~(white | black);
 	side = history[hmovePointer - 1].side;
@@ -804,6 +815,7 @@ bool makeMove(int to, int from) {
 		if (generated[i].from == from){
 			if (generated[i].to == to) {
 				u64 toPointer = (u64)1 << to;
+				u64 pointer = (u64)1 << from;
 
 				u8 piece;
 
@@ -890,9 +902,19 @@ bool makeMove(int to, int from) {
 						black |= rook;
 					}
 				}
-
-
-				u64 pointer = (u64)1 << from;
+				//ep
+				if (generated[i].moveInfo & 8) {
+					u64 mask;
+					if (white & pointer)
+						mask = toPointer << 8;
+					else
+						mask = toPointer >> 8;
+					mask = ~mask;
+					black &= mask;
+					white &= mask;
+					pawns &= mask;
+				}
+				
 
 				if (pointer & rooks)
 					piece = 0;
@@ -904,9 +926,18 @@ bool makeMove(int to, int from) {
 					piece = 4;
 				else if (pointer & kings)
 					piece = 3;
-				else 
+				else {
 					piece = 5;
-
+					//double move
+					if (abs(generated[i].to - generated[i].from) == 16) {
+						u64 mask;
+						if (white & pointer)
+							mask = toPointer << 8;
+						else
+							mask = toPointer >> 8;
+						ep = (int)log2(mask);
+					}
+				}
 
 				switch (piece) {
 				case 0:
@@ -953,6 +984,7 @@ bool makeMove(int to, int from) {
 
 				if (!checkCheck()) {
 					side = !side;
+					
 					return true;
 				}
 				else
@@ -1250,6 +1282,8 @@ int main() {
 		
 		int from = 0;
 
+		f[0] = tolower(f[0]);
+
 		if (f[0] == 'u')
 			undoMove();
 		else {
@@ -1343,8 +1377,10 @@ int main() {
 
 			start = std::chrono::steady_clock::now();
 
-			if (makeMove(to, from))
+			if (makeMove(to, from)){
+				movePointer = 0;
 				gen();
+			}
 
 			end = std::chrono::steady_clock::now();
 			std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() << "ns\n";
