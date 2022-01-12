@@ -808,6 +808,8 @@ void undoMove() {
 	empty = ~(white | black);
 	side = history[hmovePointer - 1].side;
 	hmovePointer--;
+	movePointer = 0;
+	gen();
 }
 
 bool makeMove(int to, int from) {
@@ -1380,6 +1382,7 @@ int main() {
 			if (makeMove(to, from)){
 				movePointer = 0;
 				gen();
+				ep = -1;
 			}
 
 			end = std::chrono::steady_clock::now();
