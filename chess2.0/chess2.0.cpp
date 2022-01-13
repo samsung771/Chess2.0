@@ -67,6 +67,7 @@ u64 kings   = 0b0001000000000000000000000000000000000000000000000000000000010000
 u64 queens  = 0b0000100000000000000000000000000000000000000000000000000000001000;
 
 
+//masks
 u64 doubleMoveW = 0b0000000011111111000000000000000000000000000000000000000000000000;
 u64 doubleMoveB = 0b0000000000000000000000000000000000000000000000001111111100000000;
 
@@ -78,6 +79,9 @@ u64 wQcastle    = 0b000011100000000000000000000000000000000000000000000000000000
 
 u64 rRankMask   = 0b0000000100000001000000010000000100000001000000010000000100000001;
 u64 lRankMask   = 0b1000000010000000100000001000000010000000100000001000000010000000;
+
+u64 wPromotion  = 0b0000000000000000000000000000000000000000000000000000000011111111;
+u64 bPromotion  = 0b1111111100000000000000000000000000000000000000000000000000000000;
 
 
 bool side = WHITE;
@@ -183,18 +187,31 @@ void gen (){
 	for (i = 0; i < 64; i++) {
 		if (side && white & pointer) {
 			if (pointer & pawns) {
-				if (!(rRankMask & pointer) && black & pointer >> 7)
-					addMove(i - 7, i, 1);
-				if (!(lRankMask & pointer) && black & pointer >> 9)
-					addMove(i - 9, i, 1);
+				if (!(rRankMask & pointer) && black & pointer >> 7) {
+					if (wPromotion & pointer >> 7) {
+						addMove(i - 7, i, 17);
+					}
+					else
+						addMove(i - 7, i, 1);
+				}
+				if (!(lRankMask & pointer) && black & pointer >> 9) {
+					if (wPromotion & pointer >> 9) {
+						addMove(i - 9, i, 17);
+					}
+					else
+						addMove(i - 9, i, 1);
+				}
 				if (!(rRankMask & pointer) && (u64)1 << ep & pointer >> 7)
 					addMove(i - 7, i, 8);
 				if (!(lRankMask & pointer) && (u64)1 << ep & pointer >> 9)
 					addMove(i - 9, i, 8);
-				if (!(lRankMask & pointer) && black & pointer >> 9)
-					addMove(i - 9, i, 1);
-				if (empty & pointer >> 8)
-					addMove(i - 8, i, 0);
+				if (empty & pointer >> 8) {
+					if (wPromotion & pointer >> 8) {
+						addMove(i - 8, i, 16);
+					}
+					else 
+						addMove(i - 8, i, 0);
+				}
 				if (pointer & doubleMoveW && empty & pointer >> 16 && empty & pointer >> 8)
 					addMove(i - 16, i, 0);
 			}
@@ -337,16 +354,31 @@ void gen (){
 		}
 		else if (!side && black & pointer) {
 			if (pointer & pawns) {
-				if (!(lRankMask & pointer) && white & pointer << 7)
-					addMove(i + 7, i, 1);
-				if (!(rRankMask & pointer) && white & pointer << 9)
-					addMove(i + 9, i, 1);
+				if (!(lRankMask & pointer) && white & pointer << 7) {
+					if (bPromotion & pointer << 7) {
+						addMove(i + 7, i, 17);
+					}
+					else
+						addMove(i + 7, i, 1);
+				}
+				if (!(rRankMask & pointer) && white & pointer << 9) {
+					if (bPromotion & pointer << 9) {
+						addMove(i + 9, i, 17);
+					}
+					else
+						addMove(i + 9, i, 1);
+				}
 				if (!(lRankMask & pointer) && (u64)1 << ep & pointer << 7)
 					addMove(i + 7, i, 8);
 				if (!(rRankMask & pointer) && (u64)1 << ep & pointer << 9)
 					addMove(i + 9, i, 8);
-				if (empty & pointer << 8)
-					addMove(i + 8, i, 0);
+				if (empty & pointer << 8) {
+					if (bPromotion & pointer << 8) {
+						addMove(i + 8, i, 16);
+					}
+					else
+						addMove(i + 8, i, 0);
+				}
 				if (pointer & doubleMoveB && empty & pointer << 16 && empty & pointer << 8)
 					addMove(i + 16, i, 0);
 			}
@@ -804,6 +836,22 @@ void undoMove() {
 			white |= toPointer >> 8;
 		}
 	}
+	if (history[hmovePointer - 1].m.moveInfo & 16) {
+		queens &= ~pointer;
+		pawns |= pointer;
+	}
+	else if (history[hmovePointer - 1].m.moveInfo & 32) {
+		knights &= ~pointer;
+		pawns |= pointer;
+	}
+	else if (history[hmovePointer - 1].m.moveInfo & 64) {
+		rooks &= ~pointer;
+		pawns |= pointer;
+	}
+	else if (history[hmovePointer - 1].m.moveInfo & 128) {
+		bishops &= ~pointer;
+		pawns |= pointer;
+	}
 
 	empty = ~(white | black);
 	side = history[hmovePointer - 1].side;
@@ -820,6 +868,36 @@ bool makeMove(int to, int from) {
 				u64 pointer = (u64)1 << from;
 
 				u8 piece;
+
+				if (generated[i].moveInfo & 16) {
+					std::cout << "\nWhat would you like to promote to (Q,N,R,B): \n";
+					char a;
+					std::cin >> a;
+					switch (tolower(a)) {
+					case 'n':
+						generated[i].moveInfo &= 247;
+						generated[i].moveInfo |= 32;
+						pawns &= ~pointer;
+						knights |= pointer;
+						break;
+					case 'r':
+						generated[i].moveInfo &= 247;
+						generated[i].moveInfo |= 64;
+						pawns &= ~pointer;
+						rooks |= pointer;
+						break;
+					case 'b':
+						generated[i].moveInfo &= 247;
+						generated[i].moveInfo |= 128;
+						pawns &= ~pointer;
+						bishops |= pointer;
+						break;
+					default:
+						pawns &= ~pointer;
+						queens |= pointer;
+						break;
+					}
+				}
 
 				hmove h;
 				h.m = generated[i];
@@ -1228,7 +1306,7 @@ void loadBoardFromFen(std::string fen) {
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(PERFT2);
+	loadBoardFromFen(PERFT3);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
@@ -1278,9 +1356,11 @@ int main() {
 		//std::cout << "\n\n";
 		//printBoardwAttacks();
 		std::cout << "\n\n";
-		std::cout << "\nEnter the square of the piece you are moving: \n";
-		char f[2];
-		std::cin >> f;
+		std::cout << "\nEnter your move: \n";
+		char move[4];
+		std::cin >> move;
+		char f[2] = { move[0],move[1] };
+		char t[2] = { move[2],move[3] };
 		
 		int from = 0;
 
@@ -1328,10 +1408,6 @@ int main() {
 			default:
 				break;
 			}
-
-			std::cout << "\nEnter the square you are moving to: \n";
-			char t[2];
-			std::cin >> t;
 
 			int to = 0;
 
