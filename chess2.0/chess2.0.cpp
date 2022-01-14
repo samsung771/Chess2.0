@@ -129,6 +129,12 @@ u8 castle = 15;
 move generated[1024];
 hmove history[500];
 
+int perftCounter = 0;
+int perftCap = 0;
+int perftEp = 0;
+int perftCastle = 0;
+int perftProm = 0;
+
 static HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
 void printBoard() {
@@ -1303,10 +1309,121 @@ void loadBoardFromFen(std::string fen) {
 	empty = ~(black | white);
 }
 
+int px = 0;
+int py = 0;
+int col = 0;
+
+void printBoardPerft(int to, int from, int cols) {
+	CONSOLE_SCREEN_BUFFER_INFO cbsi;
+	if (GetConsoleScreenBufferInfo(hConsole, &cbsi))
+	{
+		px = cbsi.dwCursorPosition.X;
+		py = cbsi.dwCursorPosition.Y;
+	}
+
+	if (col < cols && col != 0) {
+		px += 22;
+	}
+	else if (col != 0) {
+		px = 0;
+		py += 10;
+		col = 0;
+	}
+
+
+	u64 pointer = 1;
+	std::cout << "8  ";
+	for (int i = 0; i < 64; i++) {
+		if (i == to || i == from)
+			SetConsoleTextAttribute(hConsole, 0x0002);
+		else
+			SetConsoleTextAttribute(hConsole, 0x0007);
+		/*
+		if (hmovePointer)
+			if (history[hmovePointer - 1].m.to == i || history[hmovePointer - 1].m.from == i)
+				SetConsoleTextAttribute(hConsole, 0x0006);
+			else
+				SetConsoleTextAttribute(hConsole, 0x0007);
+		*/
+		char piece;
+
+		if (empty & pointer)
+			piece = '-';
+		else {
+			if (pawns & pointer)
+				piece = 'p';
+			else if (rooks & pointer)
+				piece = 'r';
+			else if (knights & pointer)
+				piece = 'n';
+			else if (bishops & pointer)
+				piece = 'b';
+			else if (kings & pointer)
+				piece = 'k';
+			else if (queens & pointer)
+				piece = 'q';
+			else
+				piece = 'e';
+
+			if (white & pointer)
+				piece = toupper(piece);
+		}
+
+		std::cout << piece << ' ';
+		pointer <<= 1;
+		if (!((i + 1) % 8)) {
+			int num = 8 - (i + 1) / 8;
+			if (num) {
+				SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py++) });
+				std::cout << num << "  ";
+			}
+		}
+	}
+
+	SetConsoleTextAttribute(hConsole, 0x0007);
+	col++;
+	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py++) });
+	std::cout << "   A B C D E F G H";
+	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py++) });
+
+	std::cout << (char)((from % 8) + 97)
+		<< (8 - (from >> 3))
+		<< (char)((to % 8) + 97)
+		<< (8 - (to >> 3));
+
+	py -= 9;
+	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
+}
+
+int perft(int ply) {
+	if (ply == 0) {
+		return 1;
+	}
+	for (int i = 0; i < movePointer; i++) {
+		//printBoard();
+		if (makeMove(generated[i].to, generated[i].from)) {
+			printBoardPerft(generated[i].to, generated[i].from, 12);
+			//std::cout << "\nmove\n";
+			perftCounter += perft(ply - 1);
+			if (generated[i].moveInfo & 1)
+				perftCap++;
+			else if (generated[i].moveInfo & 2)
+				perftEp++;
+			else if (generated[i].moveInfo & 4 || generated[i].moveInfo & 8)
+				perftCastle++;
+			if (generated[i].moveInfo > 8)
+				perftProm++;
+			undoMove();
+		}
+	}
+	py += 9;
+	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
+}
+
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(PERFT3);
+	loadBoardFromFen(PERFT2);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
@@ -1345,11 +1462,21 @@ int main() {
 	end = std::chrono::steady_clock::now();
 	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() / tries << "ns\n";
 	
-	std::cout << '\n' << makeMove(44, 52) << '\n';
+	//std::cout << '\n' << makeMove(44, 52) << '\n';
 	
-	printBoard();
-	undoMove();
-	printBoard();
+	//printBoard();
+	//undoMove();
+	//printBoard();
+	start = std::chrono::steady_clock::now();
+	perft(1);
+	end = std::chrono::steady_clock::now();
+	std::cout << "\nPerft results";
+	std::cout << "\n" << perftCounter << " moves\n";
+	std::cout << perftCap << " captures\n";
+	std::cout << perftEp << " en passents\n";
+	std::cout << perftCastle << " castles\n";
+	std::cout << perftProm << " promotions\n";
+	std::cout << "time elapsed: "  << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() << "ns\n\n";
 
 	while (true) {
 		printBoard();
