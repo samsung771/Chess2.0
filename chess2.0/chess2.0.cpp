@@ -118,6 +118,7 @@ struct move {
 struct hmove {
 	move m;
 	u8 piece;
+	int ep;
 	bool side;
 };
 
@@ -858,7 +859,7 @@ void undoMove() {
 		bishops &= ~pointer;
 		pawns |= pointer;
 	}
-
+	ep = history[hmovePointer - 1].ep;
 	empty = ~(white | black);
 	side = history[hmovePointer - 1].side;
 	hmovePointer--;
@@ -874,6 +875,11 @@ bool makeMove(int to, int from) {
 				u64 pointer = (u64)1 << from;
 
 				u8 piece;
+
+				hmove h;
+				h.m = generated[i];
+				h.piece = 6;
+				h.side = side;
 
 				if (generated[i].moveInfo & 16) {
 					std::cout << "\nWhat would you like to promote to (Q,N,R,B): \n";
@@ -904,11 +910,6 @@ bool makeMove(int to, int from) {
 						break;
 					}
 				}
-
-				hmove h;
-				h.m = generated[i];
-				h.piece = 6;
-				h.side = side;
 
 				//capture
 				if (generated[i].moveInfo & 1) {
@@ -1067,6 +1068,8 @@ bool makeMove(int to, int from) {
 				queens &= mask;
 
 				empty = ~(white | black);
+				
+				h.ep = ep;
 
 				if (!checkCheck()) {
 					side = !side;
@@ -1326,7 +1329,7 @@ void printBoardPerft(int to, int from, int cols) {
 	}
 	else if (col != 0) {
 		px = 0;
-		py += 10;
+		py += 11;
 		col = 0;
 	}
 
@@ -1374,7 +1377,7 @@ void printBoardPerft(int to, int from, int cols) {
 		if (!((i + 1) % 8)) {
 			int num = 8 - (i + 1) / 8;
 			if (num) {
-				SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py++) });
+				SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(++py) });
 				std::cout << num << "  ";
 			}
 		}
@@ -1382,9 +1385,9 @@ void printBoardPerft(int to, int from, int cols) {
 
 	SetConsoleTextAttribute(hConsole, 0x0007);
 	col++;
-	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py++) });
+	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(++py) });
 	std::cout << "   A B C D E F G H";
-	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py++) });
+	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(++py) });
 
 	std::cout << (char)((from % 8) + 97)
 		<< (8 - (from >> 3))
