@@ -838,7 +838,6 @@ void undoMove() {
 			black |= toPointer << 8;
 		}
 		else {
-
 			pawns |= toPointer >> 8;
 			white |= toPointer >> 8;
 		}
@@ -1341,13 +1340,10 @@ void printBoardPerft(int to, int from, int cols) {
 			SetConsoleTextAttribute(hConsole, 0x0002);
 		else
 			SetConsoleTextAttribute(hConsole, 0x0007);
-		/*
-		if (hmovePointer)
-			if (history[hmovePointer - 1].m.to == i || history[hmovePointer - 1].m.from == i)
+		if (hmovePointer-1)
+			if (history[hmovePointer - 2].m.to == i || history[hmovePointer - 2].m.from == i)
 				SetConsoleTextAttribute(hConsole, 0x0006);
-			else
-				SetConsoleTextAttribute(hConsole, 0x0007);
-		*/
+		
 		char piece;
 
 		if (empty & pointer)
@@ -1394,8 +1390,6 @@ void printBoardPerft(int to, int from, int cols) {
 		<< (char)((to % 8) + 97)
 		<< (8 - (to >> 3));
 
-	py -= 9;
-	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
 }
 
 int perft(int ply) {
@@ -1408,25 +1402,38 @@ int perft(int ply) {
 			printBoardPerft(generated[i].to, generated[i].from, 12);
 			//std::cout << "\nmove\n";
 			perftCounter += perft(ply - 1);
-			if (generated[i].moveInfo & 1)
+			if (generated[i].moveInfo & 1) {
 				perftCap++;
-			else if (generated[i].moveInfo & 2)
+				std::cout << " Cap ";
+			}
+			else if (generated[i].moveInfo & 8) {
 				perftEp++;
-			else if (generated[i].moveInfo & 4 || generated[i].moveInfo & 8)
+				std::cout << " EP ";
+			}
+			else if (generated[i].moveInfo & 4 || generated[i].moveInfo & 2) {
 				perftCastle++;
-			if (generated[i].moveInfo > 8)
+				std::cout << " Cas ";
+			}
+			if (generated[i].moveInfo > 8) {
 				perftProm++;
+				std::cout << " Prom ";
+			}
 			undoMove();
+
+			//std::sort(&generated[0], &generated[movePointer], [](move a, move b) {return a.moveInfo > b.moveInfo; });
+
+			py -= 9;
+			SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
 		}
 	}
-	py += 9;
+	py += 10;
 	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
 }
 
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(PERFT2);
+	loadBoardFromFen(PERFT3);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
@@ -1439,7 +1446,7 @@ int main() {
 	end = std::chrono::steady_clock::now();
 	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count()/tries << "ns\n";
 
-	std::sort(&generated[0],&generated[movePointer], [](move a, move b) {return a.moveInfo > b.moveInfo; });
+	//std::sort(&generated[0],&generated[movePointer], [](move a, move b) {return a.moveInfo > b.moveInfo; });
 
 	std::cout << movePointer << '\n';
 
@@ -1470,6 +1477,8 @@ int main() {
 	//printBoard();
 	//undoMove();
 	//printBoard();
+	gen();
+	makeMove(generated[1].to, generated[1].from);
 	start = std::chrono::steady_clock::now();
 	perft(1);
 	end = std::chrono::steady_clock::now();
@@ -1479,7 +1488,7 @@ int main() {
 	std::cout << perftEp << " en passents\n";
 	std::cout << perftCastle << " castles\n";
 	std::cout << perftProm << " promotions\n";
-	std::cout << "time elapsed: "  << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() << "ns\n\n";
+	std::cout << "time elapsed: "  << std::chrono::duration_cast<std::chrono::milliseconds> (end - start).count() << "ms\n\n";
 
 	while (true) {
 		printBoard();
