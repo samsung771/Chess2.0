@@ -190,6 +190,7 @@ void gen (){
 	u64 slidingPointer = 1;
 	u8 piece = 0;
 	u8 j, i, moves;
+	movePointer = 0;
 
 	for (i = 0; i < 64; i++) {
 		if (side && white & pointer) {
@@ -1072,7 +1073,8 @@ bool makeMove(int to, int from) {
 
 				if (!checkCheck()) {
 					side = !side;
-					
+					gen();
+					ep = -1;
 					return true;
 				}
 				else
@@ -1399,7 +1401,7 @@ int perft(int ply) {
 	for (int i = 0; i < movePointer; i++) {
 		//printBoard();
 		if (makeMove(generated[i].to, generated[i].from)) {
-			printBoardPerft(generated[i].to, generated[i].from, 12);
+			printBoardPerft(history[hmovePointer-1].m.to, history[hmovePointer-1].m.from, 12);
 			//std::cout << "\nmove\n";
 			perftCounter += perft(ply - 1);
 			if (generated[i].moveInfo & 1) {
@@ -1478,9 +1480,9 @@ int main() {
 	//undoMove();
 	//printBoard();
 	gen();
-	makeMove(generated[1].to, generated[1].from);
+	//makeMove(generated[1].to, generated[1].from);
 	start = std::chrono::steady_clock::now();
-	perft(1);
+	perft(2);
 	end = std::chrono::steady_clock::now();
 	std::cout << "\nPerft results";
 	std::cout << "\n" << perftCounter << " moves\n";
@@ -1596,8 +1598,6 @@ int main() {
 
 			if (makeMove(to, from)){
 				movePointer = 0;
-				gen();
-				ep = -1;
 			}
 
 			end = std::chrono::steady_clock::now();
