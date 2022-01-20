@@ -1318,13 +1318,6 @@ int py = 0;
 int col = 0;
 
 void printBoardPerft(int to, int from, int cols) {
-	CONSOLE_SCREEN_BUFFER_INFO cbsi;
-	if (GetConsoleScreenBufferInfo(hConsole, &cbsi))
-	{
-		px = cbsi.dwCursorPosition.X;
-		py = cbsi.dwCursorPosition.Y;
-	}
-
 	if (col < cols && col != 0) {
 		px += 22;
 	}
@@ -1334,6 +1327,8 @@ void printBoardPerft(int to, int from, int cols) {
 		col = 0;
 	}
 
+
+	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
 
 	u64 pointer = 1;
 	std::cout << "8  ";
@@ -1386,12 +1381,6 @@ void printBoardPerft(int to, int from, int cols) {
 	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(++py) });
 	std::cout << "   A B C D E F G H";
 	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(++py) });
-
-	std::cout << (char)((from % 8) + 97)
-		<< (8 - (from >> 3))
-		<< (char)((to % 8) + 97)
-		<< (8 - (to >> 3));
-
 }
 
 int perft(int ply) {
@@ -1401,41 +1390,52 @@ int perft(int ply) {
 	for (int i = 0; i < movePointer; i++) {
 		//printBoard();
 		if (makeMove(generated[i].to, generated[i].from)) {
-			printBoardPerft(history[hmovePointer-1].m.to, history[hmovePointer-1].m.from, 12);
-			//std::cout << "\nmove\n";
-			perftCounter += perft(ply - 1);
-			if (generated[i].moveInfo & 1) {
-				perftCap++;
-				std::cout << " Cap ";
-			}
-			else if (generated[i].moveInfo & 8) {
-				perftEp++;
-				std::cout << " EP ";
-			}
-			else if (generated[i].moveInfo & 4 || generated[i].moveInfo & 2) {
-				perftCastle++;
-				std::cout << " Cas ";
-			}
-			if (generated[i].moveInfo > 8) {
-				perftProm++;
-				std::cout << " Prom ";
-			}
-			undoMove();
-
-			//std::sort(&generated[0], &generated[movePointer], [](move a, move b) {return a.moveInfo > b.moveInfo; });
+			if (ply > 1)
+				py -= 9;
 
 			py -= 9;
 			SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
+
+			printBoardPerft(history[hmovePointer - 1].m.to, history[hmovePointer - 1].m.from, 12);
+
+			std::cout << (char)((history[hmovePointer - 1].m.from % 8) + 97)
+				<< (8 - (history[hmovePointer - 1].m.from >> 3))
+				<< (char)((history[hmovePointer - 1].m.to % 8) + 97)
+				<< (8 - (history[hmovePointer - 1].m.to >> 3));
+
+			perftCounter += perft(ply - 1);
+			if (history[hmovePointer - 1].m.moveInfo & 1) {
+				perftCap++;
+				SetConsoleTextAttribute(hConsole, 0x0004);
+				std::cout << " Cap ";
+			}
+			else if (history[hmovePointer - 1].m.moveInfo & 8) {
+				perftEp++;
+				SetConsoleTextAttribute(hConsole, 0x0006);
+				std::cout << " EP ";
+			}
+			else if (history[hmovePointer - 1].m.moveInfo & 4 || history[hmovePointer - 1].m.moveInfo & 2) {
+				perftCastle++;
+				SetConsoleTextAttribute(hConsole, 0x0005);
+				std::cout << " Cas ";
+			}
+			if (history[hmovePointer - 1].m.moveInfo > 8) {
+				perftProm++;
+				SetConsoleTextAttribute(hConsole, 0x0003);
+				std::cout << " Prom ";
+			}
+			SetConsoleTextAttribute(hConsole, 0x0007);
+			undoMove();
 		}
 	}
-	py += 10;
+	py += 9;
 	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
 }
 
 int main() {
 	int tries = 1000000;
 	printBoard();
-	loadBoardFromFen(PERFT3);
+	loadBoardFromFen(PERFT2);
 	printBoard();
 
 	std::chrono::steady_clock::time_point end, start;
@@ -1447,8 +1447,6 @@ int main() {
 	}
 	end = std::chrono::steady_clock::now();
 	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count()/tries << "ns\n";
-
-	//std::sort(&generated[0],&generated[movePointer], [](move a, move b) {return a.moveInfo > b.moveInfo; });
 
 	std::cout << movePointer << '\n';
 
@@ -1474,13 +1472,13 @@ int main() {
 	end = std::chrono::steady_clock::now();
 	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() / tries << "ns\n";
 	
-	//std::cout << '\n' << makeMove(44, 52) << '\n';
-	
-	//printBoard();
-	//undoMove();
-	//printBoard();
 	gen();
-	//makeMove(generated[1].to, generated[1].from);
+	CONSOLE_SCREEN_BUFFER_INFO cbsi;
+	if (GetConsoleScreenBufferInfo(hConsole, &cbsi))
+	{
+		px = cbsi.dwCursorPosition.X;
+		py = cbsi.dwCursorPosition.Y;
+	}
 	start = std::chrono::steady_clock::now();
 	perft(2);
 	end = std::chrono::steady_clock::now();
