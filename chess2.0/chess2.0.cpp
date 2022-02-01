@@ -21,6 +21,15 @@
 #define QCASTLE 0b0100
 #define qCASTLE 0b1000
 
+//piece scores for evaluation
+#define p 100
+#define b 300
+#define n 400
+#define r 500
+#define q 1000
+#define at 100
+#define pr 50
+
 typedef unsigned long long u64;
 typedef uint8_t            u8;
 typedef uint16_t           u16;
@@ -85,6 +94,7 @@ u64 bPromotion  = 0b111111110000000000000000000000000000000000000000000000000000
 
 
 bool side = WHITE;
+bool playerSide = WHITE;
 int fiftyMove = 0;
 int moveNum = 1;
 
@@ -135,6 +145,7 @@ int perftCap = 0;
 int perftEp = 0;
 int perftCastle = 0;
 int perftProm = 0;
+int nodesChecked = 0;
 
 static HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
@@ -195,14 +206,15 @@ void gen (){
 	for (i = 0; i < 64; i++) {
 		if (side && white & pointer) {
 			if (pointer & pawns) {
-				if (!(rRankMask & pointer) && black & pointer >> 7) {
+				//if the piece is not on the left edge and there is a enemy to the diagonal right add to list of pseudo legal moves
+				if (!(lRankMask & pointer) && black & pointer >> 7) {
 					if (wPromotion & pointer >> 7) {
 						addMove(i - 7, i, 17);
 					}
 					else
 						addMove(i - 7, i, 1);
 				}
-				if (!(lRankMask & pointer) && black & pointer >> 9) {
+				if (!(rRankMask & pointer) && black & pointer >> 9) {
 					if (wPromotion & pointer >> 9) {
 						addMove(i - 9, i, 17);
 					}
@@ -362,14 +374,14 @@ void gen (){
 		}
 		else if (!side && black & pointer) {
 			if (pointer & pawns) {
-				if (!(lRankMask & pointer) && white & pointer << 7) {
+				if (!(rRankMask & pointer) && white & pointer << 7) {
 					if (bPromotion & pointer << 7) {
 						addMove(i + 7, i, 17);
 					}
 					else
 						addMove(i + 7, i, 1);
 				}
-				if (!(rRankMask & pointer) && white & pointer << 9) {
+				if (!(lRankMask & pointer) && white & pointer << 9) {
 					if (bPromotion & pointer << 9) {
 						addMove(i + 9, i, 17);
 					}
@@ -882,9 +894,10 @@ bool makeMove(int to, int from) {
 				h.side = side;
 
 				if (generated[i].moveInfo & 16) {
-					std::cout << "\nWhat would you like to promote to (Q,N,R,B): \n";
-					char a;
-					std::cin >> a;
+					//std::cout << "\nWhat would you like to promote to (Q,N,R,B): \n";
+					//char a;
+					//std::cin >> a;
+					char a = 'q';
 					switch (tolower(a)) {
 					case 'n':
 						generated[i].moveInfo &= 247;
@@ -1073,6 +1086,7 @@ bool makeMove(int to, int from) {
 
 				if (!checkCheck()) {
 					side = !side;
+					movePointer = 0;
 					gen();
 					ep = -1;
 					return true;
@@ -1327,7 +1341,6 @@ void printBoardPerft(int to, int from, int cols) {
 		col = 0;
 	}
 
-
 	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
 
 	u64 pointer = 1;
@@ -1388,11 +1401,10 @@ int perft(int ply) {
 		return 1;
 	}
 	for (int i = 0; i < movePointer; i++) {
-		//printBoard();
 		if (makeMove(generated[i].to, generated[i].from)) {
 			if (ply > 1)
 				py -= 9;
-
+			
 			py -= 9;
 			SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
 
@@ -1402,7 +1414,7 @@ int perft(int ply) {
 				<< (8 - (history[hmovePointer - 1].m.from >> 3))
 				<< (char)((history[hmovePointer - 1].m.to % 8) + 97)
 				<< (8 - (history[hmovePointer - 1].m.to >> 3));
-
+			
 			perftCounter += perft(ply - 1);
 			if (history[hmovePointer - 1].m.moveInfo & 1) {
 				perftCap++;
@@ -1432,13 +1444,114 @@ int perft(int ply) {
 	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
 }
 
-int main() {
-	int tries = 1000000;
-	printBoard();
-	loadBoardFromFen(PERFT2);
-	printBoard();
 
-	std::chrono::steady_clock::time_point end, start;
+int staticEval() {
+	int score = 0;
+	u64 pointer = 1;
+	int m = 1;
+	for (int i = 0; i < 64; i++) {
+		m = 1;
+		if (pointer & white)
+			m = -1;
+		if (pawns & pointer)
+			score += p * m;
+		else if (rooks & pointer)
+			score += r * m;
+		else if (knights & pointer)
+			score += n * m;
+		else if (bishops & pointer)
+			score += b * m;
+		else if (queens & pointer)
+			score += q * m;
+
+		if (protectedSq(i))
+			score += pr * m;
+		if (attacked(i))
+			score += at * m;
+		if (checkCheck())
+			score += -2000 * m;
+		pointer <<= 1;
+	}
+	return score;
+}
+
+int minimax(int depth, int alpha, int beta, bool min) {
+	nodesChecked++;
+	if (depth == 0) {
+		return staticEval();
+	}
+	int score = 0;
+
+	if (!min) {
+		for (int i = 0; i < movePointer; i++) {
+			if (makeMove(generated[i].to, generated[i].from)) {
+				score = minimax(depth - 1, alpha, beta, 1);
+				undoMove();
+				if (score >= beta)
+					return beta;
+				if (score > alpha)
+					alpha = score;
+			}
+		}
+		return alpha;
+	}
+	else {
+		for (int i = 0; i < movePointer; i++) {
+			if (makeMove(generated[i].to, generated[i].from)) {
+				score = minimax(depth - 1, alpha, beta, 0);
+				undoMove();
+				if (score <= alpha)
+					return alpha;
+				if (score < beta)
+					beta = score;
+			}
+		}
+		return beta;
+	}
+}
+
+/*
+int minimax(int depth, bool max) {
+	nodesChecked++;
+	int bestScore;
+	if (max) {
+		bestScore = -99999999;
+	}
+	else {
+		bestScore = 99999999;
+	}
+	if (movePointer == 0) {
+		if (max)
+			return -999999999;
+		else
+			return 999999999;
+	}
+	else if (depth == 0) {
+		return staticEval();
+	}
+	else {
+		int score;
+		for (int i = 0; i < movePointer; i++) {
+			if (makeMove(generated[i].to, generated[i].from)) {
+				score = minimax(depth - 1, !max);
+				std::cout << score << '\n';
+				if (max)
+					bestScore = score > bestScore ? score : bestScore;
+				else
+					bestScore = score < bestScore ? score : bestScore;
+				undoMove();
+			}
+		}
+	}
+	return bestScore;
+}
+*/
+
+
+void timeTest() {
+	int tries = 1000000;
+
+
 	std::cout << "\ngen\n";
 	start = std::chrono::steady_clock::now();
 	for (int i = 0; i < tries; i++) {
@@ -1446,7 +1559,7 @@ int main() {
 		gen();
 	}
 	end = std::chrono::steady_clock::now();
-	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count()/tries << "ns\n";
+	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() / tries << "ns\n";
 
 	std::cout << movePointer << '\n';
 
@@ -1454,25 +1567,28 @@ int main() {
 	std::cout << "\ncheck\n";
 	start = std::chrono::steady_clock::now();
 	for (int i = 0; i < tries; i++) {
-		attacked(i%64);
+		attacked(i % 64);
 	}
 	end = std::chrono::steady_clock::now();
 	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() / tries << "ns\n";
-	
+
 	std::cout << checkCheck() << "\n\n\n";
 
 	printBoardwAttacks();
-	
+
 	std::cout << "\nmakemove\n";
 	start = std::chrono::steady_clock::now();
 	for (int i = 0; i < tries; i++) {
-		makeMove(44,52);
+		makeMove(44, 52);
 		undoMove();
 	}
 	end = std::chrono::steady_clock::now();
 	std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() / tries << "ns\n";
-	
-	gen();
+}
+
+void perft() {
+	std::chrono::steady_clock::time_point end, start;
+
 	CONSOLE_SCREEN_BUFFER_INFO cbsi;
 	if (GetConsoleScreenBufferInfo(hConsole, &cbsi))
 	{
@@ -1480,7 +1596,7 @@ int main() {
 		py = cbsi.dwCursorPosition.Y;
 	}
 	start = std::chrono::steady_clock::now();
-	perft(2);
+	perft(3);
 	end = std::chrono::steady_clock::now();
 	std::cout << "\nPerft results";
 	std::cout << "\n" << perftCounter << " moves\n";
@@ -1488,118 +1604,150 @@ int main() {
 	std::cout << perftEp << " en passents\n";
 	std::cout << perftCastle << " castles\n";
 	std::cout << perftProm << " promotions\n";
-	std::cout << "time elapsed: "  << std::chrono::duration_cast<std::chrono::milliseconds> (end - start).count() << "ms\n\n";
+	std::cout << "time elapsed: " << std::chrono::duration_cast<std::chrono::milliseconds> (end - start).count() << "ms\n\n";
+}
+
+int main() {
+	loadBoardFromFen(DEFAULT);
+	gen();
 
 	while (true) {
 		printBoard();
-		//std::cout << "\n\n";
-		//printBoardwAttacks();
-		std::cout << "\n\n";
-		std::cout << "\nEnter your move: \n";
-		char move[4];
-		std::cin >> move;
-		char f[2] = { move[0],move[1] };
-		char t[2] = { move[2],move[3] };
-		
-		int from = 0;
 
-		f[0] = tolower(f[0]);
+		if (side == playerSide) {
+			std::cout << "\n\n";
+			std::cout << "\nEnter your move: \n";
+			char move[4];
+			std::cin >> move;
+			char f[2] = { move[0],move[1] };
+			char t[2] = { move[2],move[3] };
 
-		if (f[0] == 'u')
-			undoMove();
+			int from = 0;
+
+			f[0] = tolower(f[0]);
+
+			if (f[0] == 'u')
+				undoMove();
+			else {
+				switch (f[0])
+				{
+				case 'h':
+					from++;
+				case 'g':
+					from++;
+				case 'f':
+					from++;
+				case 'e':
+					from++;
+				case 'd':
+					from++;
+				case 'c':
+					from++;
+				case 'b':
+					from++;
+				default:
+					break;
+				}
+
+				switch (f[1])
+				{
+				case '1':
+					from += 8;
+				case '2':
+					from += 8;
+				case '3':
+					from += 8;
+				case '4':
+					from += 8;
+				case '5':
+					from += 8;
+				case '6':
+					from += 8;
+				case '7':
+					from += 8;
+				default:
+					break;
+				}
+
+				int to = 0;
+
+				t[0] = tolower(t[0]);
+
+				switch (t[0])
+				{
+				case 'h':
+					to++;
+				case 'g':
+					to++;
+				case 'f':
+					to++;
+				case 'e':
+					to++;
+				case 'd':
+					to++;
+				case 'c':
+					to++;
+				case 'b':
+					to++;
+				default:
+					break;
+				}
+
+				switch (t[1])
+				{
+				case '1':
+					to += 8;
+				case '2':
+					to += 8;
+				case '3':
+					to += 8;
+				case '4':
+					to += 8;
+				case '5':
+					to += 8;
+				case '6':
+					to += 8;
+				case '7':
+					to += 8;
+				default:
+					break;
+				}
+
+				start = std::chrono::steady_clock::now();
+
+				makeMove(to, from);
+
+				end = std::chrono::steady_clock::now();
+				std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() << "ns\n";
+			}
+		}
 		else {
-			switch (f[0])
-			{
-			case 'h':
-				from++;
-			case 'g':
-				from++;
-			case 'f':
-				from++;
-			case 'e':
-				from++;
-			case 'd':
-				from++;
-			case 'c':
-				from++;
-			case 'b':
-				from++;
-			default:
-				break;
+			int bestScore = -999999999;
+			int bestmove[2];
+			int move[2];
+			int score = 0;
+
+			nodesChecked = 0;
+
+			for (int i = 0; i < movePointer; i++) {
+				move[0] = generated[i].to;
+				move[1] = generated[i].from;
+				if (makeMove(generated[i].to, generated[i].from)) {
+					score = minimax(3, -9999999, 9999999, 1);
+					if (score > bestScore) {
+						bestScore = score;
+						bestmove[0] = move[0];
+						bestmove[1] = move[1];
+					}
+					undoMove();
+				}
 			}
-
-			switch (f[1])
-			{
-			case '1':
-				from += 8;
-			case '2':
-				from += 8;
-			case '3':
-				from += 8;
-			case '4':
-				from += 8;
-			case '5':
-				from += 8;
-			case '6':
-				from += 8;
-			case '7':
-				from += 8;
-			default:
-				break;
-			}
-
-			int to = 0;
-
-			t[0] = tolower(t[0]);
-
-			switch (t[0])
-			{
-			case 'h':
-				to++;
-			case 'g':
-				to++;
-			case 'f':
-				to++;
-			case 'e':
-				to++;
-			case 'd':
-				to++;
-			case 'c':
-				to++;
-			case 'b':
-				to++;
-			default:
-				break;
-			}
-
-			switch (t[1])
-			{
-			case '1':
-				to += 8;
-			case '2':
-				to += 8;
-			case '3':
-				to += 8;
-			case '4':
-				to += 8;
-			case '5':
-				to += 8;
-			case '6':
-				to += 8;
-			case '7':
-				to += 8;
-			default:
-				break;
-			}
-
-			start = std::chrono::steady_clock::now();
-
-			if (makeMove(to, from)){
-				movePointer = 0;
-			}
-
-			end = std::chrono::steady_clock::now();
-			std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() << "ns\n";
+			makeMove(bestmove[0], bestmove[1]);
+			std::cout << (char)((history[hmovePointer - 1].m.from % 8) + 97)
+				<< (8 - (history[hmovePointer - 1].m.from >> 3))
+				<< (char)((history[hmovePointer - 1].m.to % 8) + 97)
+				<< (8 - (history[hmovePointer - 1].m.to >> 3));
+			std::cout << "   " << nodesChecked << '\n';
 		}
 	}
 }
