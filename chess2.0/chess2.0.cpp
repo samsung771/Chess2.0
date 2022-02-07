@@ -116,8 +116,6 @@ const int mailboxMoves[5][8] = {
 const u8 pieceMoveSizes[5] = {4,4,8,8,8};
 const bool slidingPiece[5] = {1,1,0,0,1};
 
-u16 test[1024] = {0};
-
 struct move {
 	u8 to;
 	u8 from;
@@ -130,6 +128,7 @@ struct hmove {
 	u8 piece;
 	int ep;
 	bool side;
+	u8 castle;
 };
 
 int movePointer = 0;
@@ -138,7 +137,7 @@ int ep = -1;
 u8 castle = 15;
 
 move generated[1024];
-hmove history[500];
+hmove history[256];
 
 int perftCounter = 0;
 int perftCap = 0;
@@ -872,6 +871,7 @@ void undoMove() {
 		pawns |= pointer;
 	}
 	ep = history[hmovePointer - 1].ep;
+	castle = history[hmovePointer - 1].castle;
 	empty = ~(white | black);
 	side = history[hmovePointer - 1].side;
 	hmovePointer--;
@@ -1038,6 +1038,30 @@ bool makeMove(int to, int from) {
 						ep = (int)log2(mask);
 					}
 				}
+				
+				if (piece == 0) {
+					if (pointer & (u64)1 << 63)
+						castle &= ~KCASTLE;
+
+					if (pointer & (u64)1 << 56)
+						castle &= ~QCASTLE;
+
+					if (pointer & (u64)1 << 7)
+						castle &= ~kCASTLE;
+
+					if (pointer & (u64)1 << 0)
+						castle &= ~qCASTLE;
+				}
+				if (piece == 3) {
+					if (pointer & white) {
+						castle &= ~KCASTLE;
+						castle &= ~QCASTLE;
+					}
+					if (pointer & black) {
+						castle &= ~kCASTLE;
+						castle &= ~qCASTLE;
+					}
+				}
 
 				switch (piece) {
 				case 0:
@@ -1071,18 +1095,19 @@ bool makeMove(int to, int from) {
 
 				u64 mask = ~pointer;
 
-				black &= mask;
-				white &= mask;
-				pawns &= mask;
-				rooks &= mask;
+				black   &= mask;
+				white   &= mask;
+				pawns   &= mask;
+				rooks   &= mask;
 				knights &= mask;
 				bishops &= mask;
-				kings &= mask;
-				queens &= mask;
+				kings   &= mask;
+				queens  &= mask;
 
 				empty = ~(white | black);
 				
 				h.ep = ep;
+				h.castle = castle;
 
 				if (!checkCheck()) {
 					side = !side;
@@ -1444,7 +1469,6 @@ int perft(int ply) {
 	SetConsoleCursorPosition(hConsole, COORD{ (short)px,(short)(py) });
 }
 
-
 int staticEval() {
 	int score = 0;
 	u64 pointer = 1;
@@ -1547,10 +1571,10 @@ int minimax(int depth, bool max) {
 }
 */
 
-
 void timeTest() {
 	int tries = 1000000;
 
+	std::chrono::high_resolution_clock::time_point start, end;
 
 	std::cout << "\ngen\n";
 	start = std::chrono::steady_clock::now();
@@ -1608,8 +1632,10 @@ void perft() {
 }
 
 int main() {
-	loadBoardFromFen(DEFAULT);
+	loadBoardFromFen(PERFT2);
 	gen();
+
+	std::chrono::high_resolution_clock::time_point start, end;
 
 	while (true) {
 		printBoard();
