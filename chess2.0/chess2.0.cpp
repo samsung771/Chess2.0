@@ -146,6 +146,10 @@ int perftCastle = 0;
 int perftProm = 0;
 int nodesChecked = 0;
 
+int px = 0;
+int py = 0;
+int col = 0;
+
 static HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
 void printBoard() {
@@ -709,14 +713,15 @@ bool protectedSq(int square) {
 
 bool checkCheck() {
 	u64 pointer = 1;
+	//find the king
 	for (int square = 0; square < 64; square++) {
 		if (!side) {
 			if (pointer & kings && pointer & black)
-				return attacked(square);
+				return attacked(square); //return if the king is being attacked
 		}
 		else {
 			if (pointer & kings && pointer & white)
-				return attacked(square);
+				return attacked(square); //return if the king is being attacked
 		}
 		pointer <<= 1;
 	}
@@ -726,11 +731,13 @@ void undoMove() {
 	if (hmovePointer == 0)
 		return;
 
+	//creates pointers
 	u64 toPointer = (u64)1 << history[hmovePointer - 1].m.to;
 	u64 pointer = (u64)1 << history[hmovePointer - 1].m.from;
 
 	u8 piece;
 
+	//find what piece moved
 	if (toPointer & rooks)
 		piece = 0;
 	else if (toPointer & bishops)
@@ -744,6 +751,7 @@ void undoMove() {
 	else
 		piece = 5;
 
+	//remove the piece
 	u64 mask = ~toPointer;
 	black &= mask;
 	white &= mask;
@@ -754,6 +762,7 @@ void undoMove() {
 	kings &= mask;
 	queens &= mask;
 
+	//put the piece back where it was
 	switch (piece) {
 	case 0:
 		rooks |= pointer;
@@ -775,12 +784,13 @@ void undoMove() {
 		break;
 	}
 	
-
+	//update the colours
 	if (history[hmovePointer - 1].side)
 		white |= pointer;
 	else
 		black |= pointer;
-
+	
+	//capture
 	if (history[hmovePointer - 1].m.moveInfo & 1) {
 		switch (history[hmovePointer - 1].piece) {
 		case 0:
@@ -808,6 +818,7 @@ void undoMove() {
 		else
 			white |= toPointer;
 	}
+	//castling
 	else if (history[hmovePointer - 1].m.moveInfo & 2) {
 		if (history[hmovePointer - 1].side) {
 			u64 rook = (u64)1 << 63;
@@ -825,7 +836,7 @@ void undoMove() {
 			rooks &= rook;
 			black &= rook;
 		}
-	}
+	}//q side
 	else if (history[hmovePointer - 1].m.moveInfo & 4) {
 		if (history[hmovePointer - 1].side) {
 			u64 rook = (u64)1 << 56;
@@ -844,6 +855,8 @@ void undoMove() {
 			black &= rook;
 		}
 	}
+
+	//ep
 	else if (history[hmovePointer - 1].m.moveInfo & 8) {
 		if (history[hmovePointer - 1].side) {
 			pawns |= toPointer << 8;
@@ -854,6 +867,8 @@ void undoMove() {
 			white |= toPointer >> 8;
 		}
 	}
+
+	//roll back promotions
 	if (history[hmovePointer - 1].m.moveInfo & 16) {
 		queens &= ~pointer;
 		pawns |= pointer;
@@ -870,19 +885,25 @@ void undoMove() {
 		bishops &= ~pointer;
 		pawns |= pointer;
 	}
+
+	//roll back variables
 	ep = history[hmovePointer - 1].ep;
 	castle = history[hmovePointer - 1].castle;
 	empty = ~(white | black);
 	side = history[hmovePointer - 1].side;
 	hmovePointer--;
+
+	//regenerate the moves (i know this is inefficient but i haven't got around to fixing it yet)
 	movePointer = 0;
 	gen();
 }
 
 bool makeMove(int to, int from) {
+	//search for the move the player wants to make
 	for (int i = 0; i < movePointer; i++) {
 		if (generated[i].from == from){
 			if (generated[i].to == to) {
+				//makes pointers to the moved squares
 				u64 toPointer = (u64)1 << to;
 				u64 pointer = (u64)1 << from;
 
@@ -927,9 +948,11 @@ bool makeMove(int to, int from) {
 				//capture
 				if (generated[i].moveInfo & 1) {
 					u64 mask = ~toPointer;
+					//remove the piece
 					black &= mask;
 					white &= mask;
 
+					//find out what piece is being taken so it can be put back if the move is undone
 					if (toPointer & rooks)
 						piece = 0;
 					else if (toPointer & bishops)
@@ -943,6 +966,7 @@ bool makeMove(int to, int from) {
 					else
 						piece = 5;
 
+					//remove the piece
 					pawns &= mask;
 					rooks &= mask;
 					knights &= mask;
@@ -950,6 +974,7 @@ bool makeMove(int to, int from) {
 					kings &= mask;
 					queens &= mask;
 
+					//store what piece it is
 					h.piece = piece;
 				}
 				//king side castle
@@ -1039,6 +1064,7 @@ bool makeMove(int to, int from) {
 					}
 				}
 				
+				//removes castling if the rook or king moves
 				if (piece == 0) {
 					if (pointer & (u64)1 << 63)
 						castle &= ~KCASTLE;
@@ -1063,6 +1089,7 @@ bool makeMove(int to, int from) {
 					}
 				}
 
+				//places the piece where it is going
 				switch (piece) {
 				case 0:
 					rooks |= toPointer;
@@ -1084,17 +1111,18 @@ bool makeMove(int to, int from) {
 					break;
 				}
 
-
+				//add the piece to the colour
 				if (side)
 					white |= toPointer;
 				else
 					black |= toPointer;
 
-				history[hmovePointer] = h;
-				hmovePointer++;
-
+				//update history
+				h.castle = castle;
+				history[hmovePointer++] = h;
 				u64 mask = ~pointer;
 
+				//remove the piece from the place it was
 				black   &= mask;
 				white   &= mask;
 				pawns   &= mask;
@@ -1104,12 +1132,14 @@ bool makeMove(int to, int from) {
 				kings   &= mask;
 				queens  &= mask;
 
+				//update empty squares
 				empty = ~(white | black);
-				
-				h.ep = ep;
-				h.castle = castle;
 
+				h.ep = ep;
+
+				//if the pseudo-legal does not cause check
 				if (!checkCheck()) {
+					//update size and regenerate moves
 					side = !side;
 					movePointer = 0;
 					gen();
@@ -1117,7 +1147,7 @@ bool makeMove(int to, int from) {
 					return true;
 				}
 				else
-					undoMove();
+					undoMove(); //the pseudo-legal move wasn't legal so undo it
 				return false;
 			}
 		}
@@ -1352,10 +1382,6 @@ void loadBoardFromFen(std::string fen) {
 	empty = ~(black | white);
 }
 
-int px = 0;
-int py = 0;
-int col = 0;
-
 void printBoardPerft(int to, int from, int cols) {
 	if (col < cols && col != 0) {
 		px += 22;
@@ -1473,7 +1499,9 @@ int staticEval() {
 	int score = 0;
 	u64 pointer = 1;
 	int m = 1;
+	//for each piece on the board
 	for (int i = 0; i < 64; i++) {
+		//add or subtract the value of the piece from the score based on the side 
 		m = 1;
 		if (pointer & white)
 			m = -1;
@@ -1493,7 +1521,7 @@ int staticEval() {
 		if (attacked(i))
 			score += at * m;
 		if (checkCheck())
-			score += -2000 * m;
+			score += -1000 * m;
 		pointer <<= 1;
 	}
 	return score;
@@ -1509,6 +1537,7 @@ int minimax(int depth, int alpha, int beta, bool min) {
 	if (!min) {
 		for (int i = 0; i < movePointer; i++) {
 			if (makeMove(generated[i].to, generated[i].from)) {
+				//printBoard();
 				score = minimax(depth - 1, alpha, beta, 1);
 				undoMove();
 				if (score >= beta)
@@ -1522,6 +1551,7 @@ int minimax(int depth, int alpha, int beta, bool min) {
 	else {
 		for (int i = 0; i < movePointer; i++) {
 			if (makeMove(generated[i].to, generated[i].from)) {
+				//printBoard();
 				score = minimax(depth - 1, alpha, beta, 0);
 				undoMove();
 				if (score <= alpha)
@@ -1533,43 +1563,6 @@ int minimax(int depth, int alpha, int beta, bool min) {
 		return beta;
 	}
 }
-
-/*
-int minimax(int depth, bool max) {
-	nodesChecked++;
-	int bestScore;
-	if (max) {
-		bestScore = -99999999;
-	}
-	else {
-		bestScore = 99999999;
-	}
-	if (movePointer == 0) {
-		if (max)
-			return -999999999;
-		else
-			return 999999999;
-	}
-	else if (depth == 0) {
-		return staticEval();
-	}
-	else {
-		int score;
-		for (int i = 0; i < movePointer; i++) {
-			if (makeMove(generated[i].to, generated[i].from)) {
-				score = minimax(depth - 1, !max);
-				std::cout << score << '\n';
-				if (max)
-					bestScore = score > bestScore ? score : bestScore;
-				else
-					bestScore = score < bestScore ? score : bestScore;
-				undoMove();
-			}
-		}
-	}
-	return bestScore;
-}
-*/
 
 void timeTest() {
 	int tries = 1000000;
@@ -1632,7 +1625,7 @@ void perft() {
 }
 
 int main() {
-	loadBoardFromFen(PERFT2);
+	loadBoardFromFen(DEFAULT);
 	gen();
 
 	std::chrono::high_resolution_clock::time_point start, end;
@@ -1652,8 +1645,10 @@ int main() {
 
 			f[0] = tolower(f[0]);
 
-			if (f[0] == 'u')
+			if (f[0] == 'u') {
 				undoMove();
+				undoMove();
+			}
 			else {
 				switch (f[0])
 				{
@@ -1746,6 +1741,7 @@ int main() {
 				end = std::chrono::steady_clock::now();
 				std::cout << std::chrono::duration_cast<std::chrono::nanoseconds> (end - start).count() << "ns\n";
 			}
+			//printBoard();
 		}
 		else {
 			int bestScore = -999999999;
@@ -1765,6 +1761,7 @@ int main() {
 						bestmove[0] = move[0];
 						bestmove[1] = move[1];
 					}
+					//printBoard();
 					undoMove();
 				}
 			}
