@@ -1,5 +1,3 @@
-//Comment for testing
-
 #include <iostream>
 #include <chrono>
 #include <algorithm>
